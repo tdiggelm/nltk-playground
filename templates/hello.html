@@ -24,6 +24,8 @@ cyan      #2aa198  strings, numbers
 green     #859900  operators, other keywords
 
 
+// The solarized palette
+
 $base03 =  #002b36
 $base02 =  #073642
 $base01 =  #586e75
@@ -41,6 +43,19 @@ $violet =  #6c71c4
 $blue =    #268bd2 
 $cyan =    #2aa198 
 $green =   #859900 
+
+if $solarized is dark
+  $fg =      $base0
+  $bg =      $base03
+  $hl =      $base02
+  $emph =    $base1
+  $comment = $base01
+else
+  $fg =      $base00
+  $bg =      $base3
+  $hl =      $base2
+  $emph =    $base01
+  $comment = $base1
 */
 body {margin: 0; padding: 0;}
 #control {background-color: #fdf6e3; padding: 10px; color: #657b83;}
