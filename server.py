@@ -2,9 +2,10 @@ from flask import Flask
 from flask import render_template
 from flask import jsonify
 from flask import request
+from werkzeug.exceptions import BadRequest
 app = Flask(__name__)
 
-from tasks import keywords_from_url
+from tasks import keywords_from_url, keywords_from_text
 
 def str_to_bool(string):
     return string is not None and (string == '1' or string.lower() == 'true')
@@ -19,8 +20,8 @@ def format_result(fp):
         html += '<li><label class="checkbox"><input type="checkbox" value="%s" />%s</label></li>' % (keyword, keyword)
     return html
 
-@app.route('/fingerprint/', defaults={'url': ''})
-@app.route('/fingerprint/<path:url>')
+@app.route('/fingerprint/', defaults={'url': ''}, methods=['GET', 'POST'])
+@app.route('/fingerprint/<path:url>', methods=['GET', 'POST'])
 def fingerprint(url=None):
     args = dict(request.args.items())
     preserve_entities = str_to_bool(args.pop("preserve_entities", "false"))
@@ -38,7 +39,7 @@ def fingerprint(url=None):
                 associations_per_keyword=0)
             return format_result(fp)
         else:
-            raise BadRequest('expected text/plain')
+            raise BadRequest('expected text/plain, got %s' % request.headers.get('content-type', '<n/a>'))
     else:
         fp = keywords_from_url(url, 
             preserve_entities=preserve_entities, corpus=corpus, 

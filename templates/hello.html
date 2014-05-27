@@ -16,6 +16,9 @@
   <option value="brown">brown</option>
   <option value="none">none</option>
 </select>
+<textarea id="text" name="text" rows="10" cols="50">
+</textarea>
+<button id="btnText">Go text</button>
 
 <ul id="result">
 </ul>
@@ -24,7 +27,11 @@
 <script language="javascript">
 function keywords_for_url() 
 {
+    $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
     url = $('#url').val();
+    if (!url.match(/^[a-zA-Z]+:\/\//)) {
+        url = 'http://' + url;
+    }
     $.get( "http://192.168.2.3:5000/fingerprint/" + url,
         {
             "preserve_entities": $('#preserve_entities').is(':checked'),
@@ -36,9 +43,27 @@ function keywords_for_url()
     );
 }
 
+function keywords_for_text() 
+{
+    $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
+    text = $('#text').val();
+    $.ajax({
+        type : "POST",
+        url: "http://192.168.2.3:5000/fingerprint/?preserve_entities="+$('#preserve_entities').is(':checked')+"&corpus="+$('#corpus').val(),
+        contentType: "text/plain", 
+        data: text,
+        success: function(data) {
+            $("#result").html(data);
+        }
+    });
+}
+
 $(document).ready(function() {
     $("#btnTest").click(function(){
         keywords_for_url();
+    });
+    $("#btnText").click(function(){
+        keywords_for_text();
     });
     $("#url").keypress(function(event){
         if ( event.which == 13 ) {
