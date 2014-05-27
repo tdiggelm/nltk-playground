@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+<title>Hello from Flask</title>
+
+<script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+<script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+</head>
+
+<body>
+<input type="search" size=35 id="url" value="http://www.microsoft.com" />
+<button id="btnTest">Test</button>
+<label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
+<label for="corpus">corpus:</label>
+<select id="corpus" name="corpus">
+  <option value="brown">brown</option>
+  <option value="none">none</option>
+</select>
+
+<ul id="result">
+</ul>
+
+
+<script language="javascript">
+function keywords_for_url() 
+{
+    url = $('#url').val();
+    $.get( "http://192.168.2.3:5000/fingerprint/" + url,
+        {
+            "preserve_entities": $('#preserve_entities').is(':checked'),
+            "corpus": $('#corpus').val()
+        },
+        function(data) {
+            $("#result").html(data);
+        }
+    );
+}
+
+$(document).ready(function() {
+    $("#btnTest").click(function(){
+        keywords_for_url();
+    });
+    $("#url").keypress(function(event){
+        if ( event.which == 13 ) {
+            event.preventDefault();
+            keywords_for_url();
+        }
+    }); 
+});
+
+</script>
+</body>
+</html>
