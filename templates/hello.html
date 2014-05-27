@@ -5,25 +5,76 @@
 
 <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
 <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
-</head>
+<style>
+/* Solarized Dark 
+ 
+For use with Jekyll and Pygments
+ 
+http://ethanschoonover.com/solarized
+ 
+SOLARIZED HEX      ROLE
+--------- -------- ------------------------------------------
+base03    #002b36  background
+base01    #586e75  comments / secondary content
+base1     #93a1a1  body text / default code / primary content
+orange    #cb4b16  constants
+red       #dc322f  regex, special keywords
+blue      #268bd2  reserved keywords
+cyan      #2aa198  strings, numbers
+green     #859900  operators, other keywords
 
+
+$base03 =  #002b36
+$base02 =  #073642
+$base01 =  #586e75
+$base00 =  #657b83
+$base0 =   #839496
+$base1 =   #93a1a1
+$base2 =   #eee8d5
+$base3 =   #fdf6e3
+
+$yellow =  #b58900 
+$orange =  #cb4b16 
+$red =     #dc322f 
+$magenta = #d33682 
+$violet =  #6c71c4 
+$blue =    #268bd2 
+$cyan =    #2aa198 
+$green =   #859900 
+*/
+body {margin: 0; padding: 0;}
+#control {background-color: #fdf6e3; padding: 10px; color: #657b83;}
+body {background-color: #002b36; color: #93a1a1;}
+body, ul, input, button, label, select, textarea {font-size: 14px; font-family: "Open Sans";}
+input, textarea {background-color: #eee8d5; color: #657b83; border: 1px solid #657b83}
+button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1px solid #fdf6e3;}
+#result {padding: 10px;}
+#result li { display: block; float: left; margin: 2px}
+#result li label { display:block; height: 40px; width: 150px; background-color: #073642; padding-top: 20px; padding-left: 10px; color: #fdf6e3; border-radius: 2px; font-size: 12.5px;}
+#result li label:hover{ background-color: #586e75;}
+</style>
+</head>
 <body>
+<div id="control">
+<div>
 <input type="search" size=35 id="url" value="http://www.microsoft.com" />
-<button id="btnTest">Test</button>
-<label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
+<button id="btnTest">Go url</button>
+</div>
+<div>
+<textarea id="text" name="text" rows="10" cols="50">Leonhard Euler (/ˈɔɪlər/ oy-lər;[2] German pronunciation: [ˈɔʏlɐ] ( listen), local pronunciation: [ˈɔɪlr̩] ( listen); 15 April 1707 – 18 September 1783) was a pioneering Swiss mathematician and physicist. He made important discoveries in fields as diverse as infinitesimal calculus and graph theory. He also introduced much of the modern mathematical terminology and notation, particularly for mathematical analysis, such as the notion of a mathematical function. He is also renowned for his work in mechanics, fluid dynamics, optics, astronomy, and music theory.</textarea>
+<button id="btnText">Go text</button>
+</div>
+<div>
 <label for="corpus">corpus:</label>
 <select id="corpus" name="corpus">
   <option value="brown">brown</option>
   <option value="none">none</option>
 </select>
-<textarea id="text" name="text" rows="10" cols="50">
-</textarea>
-<button id="btnText">Go text</button>
-
+<label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
+</div>
+</div>
 <ul id="result">
 </ul>
-
-
 <script language="javascript">
 function keywords_for_url() 
 {
