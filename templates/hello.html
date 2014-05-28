@@ -173,7 +173,6 @@ function doSearch()
     var query = $("#result input:checked").map(function() {
         return $(this).val();
     }).get().join(" ");
-      
    customSearchControl.execute(query);
 }
 
@@ -195,11 +194,7 @@ $(document).ready(function() {
     });
     
     $("#btnSearch").click(function(){
-         var query = $("#result input:checked").map(function() {
-             return $(this).val();
-         }).get().join(" ");
-           
-        customSearchControl.execute(query);
+        doSearch();
     });
     //001217825978792069499:qahmj4i8nkq
     google.setOnLoadCallback(function() {
