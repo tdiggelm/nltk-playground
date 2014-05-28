@@ -83,7 +83,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 <button id="btnTest">Go url</button>
 </div>
 <div>
-<textarea id="text" name="text" rows="10" cols="50">Leonhard Euler (/ˈɔɪlər/ oy-lər;[2] German pronunciation: [ˈɔʏlɐ] ( listen), local pronunciation: [ˈɔɪlr̩] ( listen); 15 April 1707 – 18 September 1783) was a pioneering Swiss mathematician and physicist. He made important discoveries in fields as diverse as infinitesimal calculus and graph theory. He also introduced much of the modern mathematical terminology and notation, particularly for mathematical analysis, such as the notion of a mathematical function. He is also renowned for his work in mechanics, fluid dynamics, optics, astronomy, and music theory.</textarea>
+<textarea id="text" name="text" rows="6" cols="90">Leonhard Euler (/ˈɔɪlər/ oy-lər;[2] German pronunciation: [ˈɔʏlɐ] ( listen), local pronunciation: [ˈɔɪlr̩] ( listen); 15 April 1707 – 18 September 1783) was a pioneering Swiss mathematician and physicist. He made important discoveries in fields as diverse as infinitesimal calculus and graph theory. He also introduced much of the modern mathematical terminology and notation, particularly for mathematical analysis, such as the notion of a mathematical function. He is also renowned for his work in mechanics, fluid dynamics, optics, astronomy, and music theory.</textarea>
 <button id="btnText">Go text</button>
 </div>
 <div>
@@ -115,7 +115,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 </div>
 <div id="searchpane" style="display:none; margin-top: 20px; clear:both; background-color: white; padding: 10px">
         <script type="text/javascript" src="//www.google.com/cse/brand?form=cse-search-box-form-id&inputbox=cse-search-input-box-id"></script>
-    <button id="btnSearch">Go search</button>
+    <button style="display: none" id="btnSearch">Refresh</button>
     <div id="search">Loading....</div>
 </div>
 <script language="javascript">
@@ -139,6 +139,7 @@ function keywords_for_url()
         function(data) {
             $("#result").html(data);
             $("#searchpane").show();
+            doSearch();
         }
     );
 }
@@ -162,11 +163,25 @@ function keywords_for_text()
         success: function(data) {
             $("#result").html(data);
             $("#searchpane").show();
+            doSearch();
         }
     });
 }
 
+function doSearch() 
+{
+    var query = $("#result input:checked").map(function() {
+        return $(this).val();
+    }).get().join(" ");
+      
+   customSearchControl.execute(query);
+}
+
 $(document).ready(function() {
+    $("#result").click(function() {
+        doSearch();
+    });
+    
     $("#btn-sel-all").click(function(){
          var query = $("#result input").each(function() {
              return $(this).prop('checked', true);
