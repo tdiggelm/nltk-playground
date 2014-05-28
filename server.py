@@ -26,6 +26,7 @@ def fingerprint(url=None):
     args = dict(request.args.items())
     preserve_entities = str_to_bool(args.pop("preserve_entities", "false"))
     corpus = args.pop("corpus", "brown").lower().strip()
+    limit = int(args.pop("limit", "10"))
 
     if len(args) > 0:
         raise TypeError("unsupported parameters in querystring")
@@ -36,14 +37,14 @@ def fingerprint(url=None):
             
             fp = keywords_from_text(text, 
                 preserve_entities=preserve_entities, corpus=corpus, 
-                associations_per_keyword=0)
+                associations_per_keyword=0, limit=limit)
             return format_result(fp)
         else:
             raise BadRequest('expected text/plain, got %s' % request.headers.get('content-type', '<n/a>'))
     else:
         fp = keywords_from_url(url, 
             preserve_entities=preserve_entities, corpus=corpus, 
-            associations_per_keyword=0)
+            associations_per_keyword=0, limit=limit)
         return format_result(fp)
 
 if __name__ == '__main__':

@@ -92,6 +92,12 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
   <option value="brown">brown</option>
   <option value="none">none</option>
 </select>
+<label for="limit">number of keywords:</label>
+<select id="limit" name="limit">
+  <option value="5">5</option>
+  <option value="10" selected="selected">10</option>
+  <option value="20">20</option>
+</select>
 <label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
 </div>
 </div>
@@ -124,7 +130,8 @@ function keywords_for_url()
     $.get( "http://192.168.2.3:5000/fingerprint/" + url,
         {
             "preserve_entities": $('#preserve_entities').is(':checked'),
-            "corpus": $('#corpus').val()
+            "corpus": $('#corpus').val(),
+            "limit": $('#limit').val()
         },
         function(data) {
             $("#result").html(data);
