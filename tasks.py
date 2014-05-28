@@ -132,6 +132,10 @@ def keywords_from_text(text,
             _dataspace = Dataspace()
         elif corpus == "brown":
             _dataspace = Dataspace("./brown.hnn")
+        elif corpus == "reuters-flat":
+            _dataspace = Dataspace("./reuters-flat.hnn")
+        elif corpus == "reuters-deep":
+            _dataspace = Dataspace("./reuters-deep.hnn")
         else:
             raise ValueError("invalid corpus %s" % corpus)
         _corpus = corpus
