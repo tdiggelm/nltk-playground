@@ -36,11 +36,11 @@ def fingerprint(url=None):
     #    raise TypeError("unsupported parameters in querystring")
     
     if request.method == 'POST':
-        fp = keywords_from_text(associations_per_keyword=0, **args)
+        fp = keywords_from_text.delay(associations_per_keyword=0, **args).get(timeout=120)
     else:
-        fp = keywords_from_url(url, associations_per_keyword=0, **args)
+        fp = keywords_from_url.delay(url, associations_per_keyword=0, **args).get(timeout=120)
 
     return format_result(fp)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0', debug=True, threaded=True)
