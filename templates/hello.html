@@ -96,7 +96,8 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 <select id="limit" name="limit">
   <option value="5">5</option>
   <option value="10" selected="selected">10</option>
-  <option value="20">20</option>
+  <option value="25">25</option>
+  <option value="50">50</option>
 </select>
 <label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
 </div>
@@ -143,15 +144,19 @@ function keywords_for_url()
 function keywords_for_text() 
 {
     $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
-    text = $('#text').val();
     $("#searchpane").hide();
     $("#resultsPane").show();
     customSearchControl.clearAllResults();
     $.ajax({
         type : "POST",
-        url: "http://192.168.2.3:5000/fingerprint/?preserve_entities="+$('#preserve_entities').is(':checked')+"&corpus="+$('#corpus').val(),
-        contentType: "text/plain", 
-        data: text,
+        url: "http://192.168.2.3:5000/fingerprint/",
+        contentType: "application/json",
+        data: JSON.stringify ({
+            preserve_entities: $('#preserve_entities').is(':checked'),
+            corpus: $('#corpus').val(),
+            limit: parseInt($('#limit').val()),
+            text: $('#text').val()
+        }),
         success: function(data) {
             $("#result").html(data);
             $("#searchpane").show();
