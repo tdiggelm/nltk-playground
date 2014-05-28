@@ -17,7 +17,7 @@ def index(url=None):
 def format_result(fp):
     html = ''
     for keyword, associations in fp:
-        html += '<li><label class="checkbox"><input type="checkbox" value="%s" />%s</label></li>' % (keyword, keyword)
+        html += '<li><label class="checkbox"><input type="checkbox" checked="checked" value="%s" />%s</label></li>' % (keyword, keyword)
     return html
 
 @app.route('/fingerprint/', defaults={'url': ''}, methods=['GET', 'POST'])

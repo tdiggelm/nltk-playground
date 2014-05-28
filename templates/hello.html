@@ -3,6 +3,11 @@
 <head>
 <title>ai-one nathan</title>
 
+<script src="//www.google.com/jsapi" type="text/javascript"></script>
+<script>
+  google.load('search', '1',
+      {language : 'en'/*, style : google.loader.themes.GREENSKY*/});
+</script>
 <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
 <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
 <style>
@@ -63,10 +68,12 @@ body {background-color: #002b36; color: #93a1a1;}
 body, ul, input, button, label, select, textarea {font-size: 14px; font-family: "Open Sans";}
 input, textarea {background-color: #eee8d5; color: #657b83; border: 1px solid #657b83}
 button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1px solid #fdf6e3;}
-#result {padding: 10px;}
+#resultsPane {margin: 10px;}
+#result ul {margin: 0; padding: 0;}
 #result li { display: block; float: left; margin: 2px}
 #result li label { display:block; height: 40px; width: 150px; background-color: #073642; padding-top: 20px; padding-left: 10px; color: #fdf6e3; border-radius: 2px; font-size: 12.5px;}
 #result li label:hover{ background-color: #586e75;}
+#resultsPane {display:none;}
 </style>
 </head>
 <body>
@@ -88,9 +95,22 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 <label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
 </div>
 </div>
+<div>
+<div id="resultsPane">
+    <button id="btn-sel-all">select all</button>
+    <button id="btn-sel-none">select none</button>
 <ul id="result">
 </ul>
+<div style="clear:both"></div>
+</div>
+</div>
+<div id="searchpane" style="display:none; margin-top: 20px; clear:both; background-color: white; padding: 10px">
+        <script type="text/javascript" src="//www.google.com/cse/brand?form=cse-search-box-form-id&inputbox=cse-search-input-box-id"></script>
+    <button id="btnSearch">Go search</button>
+    <div id="search">Loading....</div>
+</div>
 <script language="javascript">
+var customSearchControl = null;
 function keywords_for_url() 
 {
     $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
@@ -98,6 +118,9 @@ function keywords_for_url()
     if (!url.match(/^[a-zA-Z]+:\/\//)) {
         url = 'http://' + url;
     }
+    $("#searchpane").hide();
+    $("#resultsPane").show();
+    customSearchControl.clearAllResults();
     $.get( "http://192.168.2.3:5000/fingerprint/" + url,
         {
             "preserve_entities": $('#preserve_entities').is(':checked'),
@@ -105,6 +128,7 @@ function keywords_for_url()
         },
         function(data) {
             $("#result").html(data);
+            $("#searchpane").show();
         }
     );
 }
@@ -113,6 +137,9 @@ function keywords_for_text()
 {
     $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
     text = $('#text').val();
+    $("#searchpane").hide();
+    $("#resultsPane").show();
+    customSearchControl.clearAllResults();
     $.ajax({
         type : "POST",
         url: "http://192.168.2.3:5000/fingerprint/?preserve_entities="+$('#preserve_entities').is(':checked')+"&corpus="+$('#corpus').val(),
@@ -120,11 +147,40 @@ function keywords_for_text()
         data: text,
         success: function(data) {
             $("#result").html(data);
+            $("#searchpane").show();
         }
     });
 }
 
 $(document).ready(function() {
+    $("#btn-sel-all").click(function(){
+         var query = $("#result input").each(function() {
+             return $(this).prop('checked', true);
+         });
+    });
+    
+    $("#btn-sel-none").click(function(){
+         var query = $("#result input").each(function() {
+             return $(this).prop('checked', false);
+         });
+    });
+    
+    $("#btnSearch").click(function(){
+         var query = $("#result input:checked").map(function() {
+             return $(this).val();
+         }).get().join(" ");
+           
+        customSearchControl.execute(query);
+    });
+    //001217825978792069499:qahmj4i8nkq
+    google.setOnLoadCallback(function() {
+        customSearchControl = new google.search.CustomSearchControl(
+            '001217825978792069499:kfy6816p2cw');
+        var options = new google.search.DrawOptions();
+        options.enableSearchResultsOnly();
+        customSearchControl.draw('search', options);
+      }, true);
+    
     $("#btnTest").click(function(){
         keywords_for_url();
     });
