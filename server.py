@@ -5,7 +5,7 @@ from flask import request
 from werkzeug.exceptions import BadRequest
 app = Flask(__name__)
 
-from tasks import keywords_from_url, keywords_from_text
+from tasks import keywords_from_url, keywords_from_text, keywords_for_query
 
 def str_to_bool(string):
     return string is not None and (string == '1' or string.lower() == 'true')
@@ -40,6 +40,12 @@ def fingerprint(url=None):
     else:
         fp = keywords_from_url.delay(url, associations_per_keyword=0, **args).get(timeout=120)
 
+    return format_result(fp)
+    
+@app.route('/fingerprint2', methods=['POST'])
+def fingerprint2(url=None):
+    job = request.json
+    fp = keywords_for_query.delay(**job).get(timeout=120)
     return format_result(fp)
 
 if __name__ == '__main__':

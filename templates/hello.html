@@ -79,12 +79,8 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 <body>
 <div id="control">
 <div>
-<input type="search" size=35 id="url" value="http://www.ai-one.com/about-ai-one/" />
-<button id="btnTest">Go url</button>
-</div>
-<div>
-<textarea id="text" name="text" rows="6" cols="90">Leonhard Euler (/ˈɔɪlər/ oy-lər;[2] German pronunciation: [ˈɔʏlɐ] ( listen), local pronunciation: [ˈɔɪlr̩] ( listen); 15 April 1707 – 18 September 1783) was a pioneering Swiss mathematician and physicist. He made important discoveries in fields as diverse as infinitesimal calculus and graph theory. He also introduced much of the modern mathematical terminology and notation, particularly for mathematical analysis, such as the notion of a mathematical function. He is also renowned for his work in mechanics, fluid dynamics, optics, astronomy, and music theory.</textarea>
-<button id="btnText">Go text</button>
+<textarea id="text" name="text" rows="1" cols="80"></textarea>
+<button style="vertical-align: top" id="btnText">Go</button>
 </div>
 <div>
 <label for="corpus">corpus:</label>
@@ -152,13 +148,14 @@ function keywords_for_text()
     customSearchControl.clearAllResults();
     $.ajax({
         type : "POST",
-        url: "http://192.168.2.3:5000/fingerprint/",
+        url: "http://192.168.2.3:5000/fingerprint2",
         contentType: "application/json",
         data: JSON.stringify ({
             preserve_entities: $('#preserve_entities').is(':checked'),
             corpus: $('#corpus').val(),
             limit: parseInt($('#limit').val()),
-            text: $('#text').val()
+            associations_per_keyword: 0,
+            query: $('#text').val()
         }),
         success: function(data) {
             $("#result").html(data);
@@ -180,6 +177,28 @@ $(document).ready(function() {
     $("#result").click(function() {
         doSearch();
     });
+    
+    $('#text').focus(function () {
+        $(this).animate({ height: "8em" }, 100, function() {
+            $(this).select();
+            $(this).onmouseup = function() {
+                $(this).onmouseup = null;
+                return false;
+            };
+        });
+    });
+    
+    $('#text').focusout(function () {
+        $(this).animate({ height: "1.3em" }, 100);
+    });
+    
+    $("#text").keypress(function(event){
+        if ( event.which == 13 && !event.shiftKey ) {
+            event.preventDefault();
+            $("#btnText").focus();
+            keywords_for_text();
+        }
+    }); 
     
     $("#btn-sel-all").click(function(){
          var query = $("#result input").each(function() {
@@ -211,12 +230,7 @@ $(document).ready(function() {
     $("#btnText").click(function(){
         keywords_for_text();
     });
-    $("#url").keypress(function(event){
-        if ( event.which == 13 ) {
-            event.preventDefault();
-            keywords_for_url();
-        }
-    }); 
+
 });
 
 </script>
