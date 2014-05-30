@@ -157,7 +157,8 @@ def keywords_for_query(
     corpus="brown",
     limit=20,
     associations_per_keyword=3,
-    preserve_entities=True):
+    preserve_entities=True,
+    fetch_urls=True):
 
     is_url = ('(?i)\\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+'
         '[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+'
@@ -166,23 +167,24 @@ def keywords_for_query(
     
     text = query
     
-    # find urls
-    matches = re.findall(is_url, text)
+    if fetch_urls:
+        # find urls
+        matches = re.findall(is_url, text)
     
-    # currently take a maximum of 5 urls
-    matches = matches[:5]
+        # currently take a maximum of 5 urls
+        matches = matches[:5]
     
-    for match in matches:
-        url = "".join(match)
-        url_fetch = url
-        if not url.startswith("http"):
-            url_fetch = "http://" + url
-        # replace url with actual content
-        try:
-            text = text.replace(url, _fetch_url(url_fetch))
-        except BaseException as ex:
-            print(ex)
-            pass
+        for match in matches:
+            url = "".join(match)
+            url_fetch = url
+            if not url.startswith("http"):
+                url_fetch = "http://" + url
+            # replace url with actual content
+            try:
+                text = text.replace(url, _fetch_url(url_fetch))
+            except BaseException as ex:
+                print(ex)
+                pass
             
     #print(matches, text)
         

@@ -98,6 +98,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
   <option value="50">50</option>
 </select>
 <label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
+<label class="checkbox"><input id="dont_fetch_urls" type="checkbox" />don't follow urls</label>
 </div>
 </div>
 <div>
@@ -155,6 +156,7 @@ function keywords_for_text()
             corpus: $('#corpus').val(),
             limit: parseInt($('#limit').val()),
             associations_per_keyword: 0,
+            fetch_urls: !$('#dont_fetch_urls').is(':checked'),
             query: $('#text').val()
         }),
         success: function(data) {
