@@ -39,6 +39,19 @@ app = Celery('tasks', backend='redis://localhost',
 _dataspace = Dataspace("./brown.hnn")
 _corpus = "brown"
 
+#tagger = nltk.data.load(nltk.tag._POS_TAGGER)
+tagger = nltk.data.load("./models/treebank_brill_aubt/treebank_brill_aubt.pickle")
+
+import time
+class Timer:
+    def __init__(self, description=""):
+        self.start = time.time()
+        self.description = description
+    
+    def stop(self):
+        sec = time.time() - self.start
+        print("%s took %ss" % (self.description, sec))
+
 def decode(page):
     data = page.read()
     
@@ -84,6 +97,8 @@ def _fetch_url(url):
 # brown.tagged_sents(tagset='universal')
     
 def _tokenize(text, preserve_entities=True):
+    time_pos = 0
+    time_chunk = 0
     
     def ne_concat(node, result):
         if isinstance(node, nltk.Tree):
@@ -97,16 +112,30 @@ def _tokenize(text, preserve_entities=True):
             result.append(word)
     
     def word_tokenize(sent):
+        nonlocal time_pos
+        nonlocal time_chunk
+        
         if preserve_entities:
-            tagged = nltk.pos_tag(nltk.word_tokenize(sent))
+            start = time.time()
+            tagged = tagger.tag(nltk.word_tokenize(sent))
+            time_pos += (time.time() - start)
+            
+            start = time.time()
             chunks = nltk.ne_chunk(tagged, binary=True)
+            time_chunk += (time.time() - start)
+            
             words = []
             ne_concat(chunks, words)
             return words
         else:
             return nltk.word_tokenize(sent)
-            
-    return [word_tokenize(sent) for sent in nltk.sent_tokenize(text)]
+    
+    tok = [word_tokenize(sent) for sent in nltk.sent_tokenize(text)]
+    
+    print("pos tagging took %ss" % time_pos)
+    print("chunking took %ss" % time_chunk)
+    
+    return tok
 
 def _normalize(words):
     return [w.lower() for w in words]
@@ -151,7 +180,6 @@ def print_args():
     return decorator
 
 @app.task
-@print_args()
 def keywords_for_query(
     query, 
     corpus="brown",
@@ -167,6 +195,7 @@ def keywords_for_query(
     
     text = query
     
+    tmr = Timer("fetch url")
     if fetch_urls:
         # find urls
         matches = re.findall(is_url, text)
@@ -185,9 +214,10 @@ def keywords_for_query(
             except BaseException as ex:
                 print(ex)
                 pass
-            
+    tmr.stop()
     #print(matches, text)
-        
+    
+    tmr = Timer("dataspace prepare")
     global _corpus
     global _dataspace
     if (_corpus != corpus):
@@ -202,19 +232,28 @@ def keywords_for_query(
         else:
             raise ValueError("invalid corpus %s" % corpus)
         _corpus = corpus
+    tmr.stop()
     
     # TODO: cache result of with text_hash as key
+    tmr = Timer("hash")
     text_hash = hashlib.sha1(text.encode('utf-8')).hexdigest()
-    sents = _tokenize(text, preserve_entities=preserve_entities)
+    tmr.stop()
     
+    tmr = Timer("tokenize")
+    sents = _tokenize(text, preserve_entities=preserve_entities)
+    tmr.stop()
+    
+    tmr = Timer("insert")
     # insert the document
     root_handle = _dataspace.insert(text_hash)
     for sent in sents:
         sent = _normalize(sent) # normalize words before inserting into ds
         sent_handle = _dataspace.insert(sent)
         _dataspace.link(root_handle, sent_handle)
+    tmr.stop()
     
     # calculate the keywords
+    tmr = Timer("analysis")
     result = []
     for keyword, _, _ in _dataspace.keywords_of(root_handle):
         if len(keyword) < 2: 
@@ -230,11 +269,14 @@ def keywords_for_query(
                 and len(quant) >= 2))
             item = (keyword, list(islice(filtered, associations_per_keyword)))
             result.append(item)
+    tmr.stop()
     
     # delete document
+    tmr = Timer("delete")
     for sent_handle in _dataspace.children_of(root_handle):
         _dataspace.delete(sent_handle)
     _dataspace.delete(root_handle)
+    tmr.stop()
     
     return result
         

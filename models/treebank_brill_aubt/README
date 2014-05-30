@@ -1,0 +1,114 @@
+A small, fast, accurate part-of-speech tagger trained on the treebank corpus
+
+Author: Jacob Perkins <japerk@gmail.com>
+		http://streamhacker.com
+		http://text-processing.com
+
+
+LICENSE
+=======
+
+This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License. To view a copy of this license, visit http://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+
+		
+Installing NLTK
+===============
+
+This tagger requires NLTK to be installed, and NLTK requires PyYAML. As of 2011-07-23, the latest version of NLTK is 2.0.1rc1, and the latest version of PyYAML is 3.10. These packages are listed in requirements.txt, and can be installed using pip:
+
+	$ pip install -r requirements.txt
+
+You can also go to http://www.nltk.org/download for alternative download instructions.
+
+
+Loading the Tagger
+==================
+
+The tagger is a pickle file that can be loaded with the pickle (or cPickle) module:
+
+	>>> import pickle
+	>>> tagger = pickle.load(open("/path/to/treebank_brill_aubt.pickle"))
+
+Or you can copy the tagger to a nltk_data, directory, as in:
+
+	$ mkdir -p ~/nltk_data/taggers
+	$ cp treebank_brill_aubt.pickle ~/nltk_data/taggers/
+
+And then you can use nltk.data.load():
+
+	>>> import nltk.data
+	>>> tagger = nltk.data.load("taggers/treebank_brill_aubt.pickle")
+
+
+Using the Tagger
+================
+
+Part-of-speech taggers provide a tag() method that takes a list of words (from a tokenized sentence) and returns a lists of tagged words:
+
+	>>> tagger.tag(["good", "morning"])
+	[('good', 'JJ'), ('morning', 'NN')]
+
+To tag a sentence string, you must first tokenize it:
+
+	>>> from nltk.tokenize import word_tokenize
+	>>> words = word_tokenize("good morning")
+	>>> tagger.tag(words)
+	[('good', 'JJ'), ('morning', 'NN')]
+
+
+About the Tagger
+================
+
+This tagger is an instance of nltk.tag.brill.BrillTagger and was trained on the 3914 sentences in the treebank corpus that comes with NLTK. Internally, the tagger is composed of a sequential backoff chain of TrigramTagger, BigramTagger, UnigramTagger, a -3 AffixTagger, and a DefaultTagger with a default tag of "-NONE-". It is many times faster than the default NLTK tagger and is a fraction of the size (which means less loading time and lower memory requirements), while still being 99.3% self-accurate (only slightly less than the 99.6% accuracy of the default tagger). Treebank corpus coverage metrics are show below:
+
+	Accuracy: 0.993275
+	
+	  Tag      Found      Actual      Precision      Recall  
+	=======  =========  ==========  =============  ==========
+	#               16          16  1.0            1.0       
+	$              724         724  1.0            1.0       
+	''             694         694  1.0            1.0       
+	,             4887        4886  1.0            1.0       
+	-LRB-          120         120  1.0            1.0       
+	-NONE-        6592        6592  1.0            1.0       
+	-RRB-          126         126  1.0            1.0       
+	.             3874        3874  1.0            1.0       
+	:              563         563  1.0            1.0       
+	CC            2277        2265  1.0            1.0       
+	CD            3555        3546  1.0            0.99895833333
+	DT            8177        8165  1.0            1.0       
+	EX              89          88  1.0            1.0       
+	FW               4           4  1.0            1.0       
+	IN            9933        9857  0.98290598290  0.96638655462
+	JJ            5857        5834  1.0            0.99373576309
+	JJR            408         381  1.0            0.97872340425
+	JJS            189         182  1.0            1.0       
+	LS              12          13  1.0            1.0       
+	MD             928         927  1.0            1.0       
+	NN           13170       13166  1.0            0.99433534743
+	NNP           9424        9410  1.0            0.99638844301
+	NNPS           231         244  1.0            0.96261682243
+	NNS           6038        6047  1.0            0.99514226231
+	PDT             19          27  1.0            0.66666666666
+	POS            828         824  1.0            1.0       
+	PRP           1715        1716  1.0            0.96      
+	PRP$           765         766  1.0            1.0       
+	RB            2763        2822  0.99766899766  0.97272727272
+	RBR            107         136  1.0            0.8125    
+	RBS             28          35  1.0            0.5       
+	RP             185         216  1.0            0.8125    
+	SYM              0           1  None           0.0       
+	TO            2180        2179  1.0            1.0       
+	UH               2           3  1.0            0.66666666666
+	VB            2554        2554  1.0            0.99855907781
+	VBD           3055        3043  1.0            0.99613152804
+	VBG           1440        1460  1.0            0.99824868651
+	VBN           2124        2134  1.0            0.99710982659
+	VBP           1312        1321  1.0            0.99656357388
+	VBZ           2112        2125  1.0            0.984375  
+	WDT            454         445  0.41666666666  0.83333333333
+	WP             241         241  1.0            1.0       
+	WP$             14          14  1.0            1.0       
+	WRB            178         178  1.0            1.0       
+	``             712         712  1.0            1.0       
+	=======  =========  ==========  =============  ==========
