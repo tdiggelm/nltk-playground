@@ -63,27 +63,28 @@ else
   $comment = $base1
 */
 body {margin: 0; padding: 0;}
-#control {background-color: #fdf6e3; padding: 10px; color: #657b83;}
-body {background-color: #002b36; color: #93a1a1;}
+#control {background-color: #fdf6e3; padding: 10px; color: #657b83; border-bottom: 10px solid #002b36;}
+body {background-color: #ffffff; color: #93a1a1;}
 body, ul, input, button, label, select, textarea {font-size: 14px; font-family: "Open Sans";}
 input, textarea {background-color: #eee8d5; color: #657b83; border: 1px solid #657b83}
 button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1px solid #fdf6e3;}
-#resultsPane {margin: 10px;}
+#resultsPane {padding-left: 110px; padding-bottom: 10px; background-color: #002b36;}
 #result ul {margin: 0; padding: 0;}
 #result li { display: block; float: left; margin: 2px}
-#result li label { display:block; height: 40px; width: 150px; background-color: #073642; padding-top: 20px; padding-left: 10px; color: #fdf6e3; border-radius: 2px; font-size: 12.5px;}
+#result li label { display:block; height: 40px; width: 150px; background-color: #073642; padding-top: 20px; padding-left: 10px; padding-right: 10px; color: #fdf6e3; border-radius: 2px; font-size: 12.5px; word-break:break-all; overflow:hidden;}
 #result li label:hover{ background-color: #586e75;}
 #resultsPane {display:none;}
 </style>
 </head>
 <body>
 <div id="control">
+<div id="logo" style="width: 100px; float:left; margin-top: -3px; font-size: 24px; font-weight: bold">ai-one</div>
 <div>
 <textarea id="text" name="text" rows="1" cols="80"></textarea>
 <button style="vertical-align: top" id="btnText">Go</button>
 </div>
 <div>
-<label for="corpus">corpus:</label>
+<label style="margin-left: 100px" for="corpus">corpus:</label>
 <select id="corpus" name="corpus">
   <option value="brown">brown</option>
   <option value="reuters-flat">reuters-flat</option>
@@ -97,8 +98,8 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
   <option value="25">25</option>
   <option value="50">50</option>
 </select>
-<label class="checkbox"><input id="preserve_entities" type="checkbox" />preserve entities</label>
-<label class="checkbox"><input id="dont_fetch_urls" type="checkbox" />don't follow urls</label>
+<label class="checkbox"><input id="preserve_entities" checked="checked" type="checkbox" />preserve entities</label>
+<label class="checkbox"><input id="fetch_urls" checked="checked" type="checkbox" />follow urls</label>
 </div>
 </div>
 <div>
@@ -110,7 +111,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 <div style="clear:both"></div>
 </div>
 </div>
-<div id="searchpane" style="display:none; margin-top: 20px; clear:both; background-color: white; padding: 10px">
+<div id="searchpane" style="display:none; margin-top: 20px; clear:both; background-color: white; padding-left: 110px">
         <script type="text/javascript" src="//www.google.com/cse/brand?form=cse-search-box-form-id&inputbox=cse-search-input-box-id"></script>
     <button style="display: none" id="btnSearch">Refresh</button>
     <div id="search">Loading....</div>
@@ -156,7 +157,7 @@ function keywords_for_text()
             corpus: $('#corpus').val(),
             limit: parseInt($('#limit').val()),
             associations_per_keyword: 0,
-            fetch_urls: !$('#dont_fetch_urls').is(':checked'),
+            fetch_urls: $('#fetch_urls').is(':checked'),
             query: $('#text').val()
         }),
         success: function(data) {
@@ -171,8 +172,8 @@ function doSearch()
 {
     var query = $("#result input:checked").map(function() {
         return $(this).val();
-    }).get().join(" ");
-   customSearchControl.execute(query);
+    }).get().join('" "');
+   customSearchControl.execute('"'+query+'"');
 }
 
 $(document).ready(function() {
