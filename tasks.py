@@ -25,6 +25,7 @@ this module could now be used to create a webservice etc.
 import nltk
 import re
 import hashlib
+import string
 from celery import Celery
 from bs4 import BeautifulSoup
 from nathan.core import Dataspace
@@ -115,20 +116,32 @@ def _tokenize(text, preserve_entities=True):
         nonlocal time_pos
         nonlocal time_chunk
         
+        # replace typographic marks with simple marks
+        sent = sent.replace('…', '...')
+        sent = sent.replace('”', "''")
+        sent = sent.replace('“', ',,')
+        sent = sent.replace(',', ',')
+        sent = sent.replace('’', "'")
+        
+        words = nltk.word_tokenize(sent)
+        # strip punctuation from words
+        words = [word.strip(string.punctuation) for word in words]
+        words = [word for word in words if len(word) > 0]
+        
         if preserve_entities:
             start = time.time()
-            tagged = tagger.tag(nltk.word_tokenize(sent))
+            tagged = tagger.tag(words)
             time_pos += (time.time() - start)
             
             start = time.time()
             chunks = nltk.ne_chunk(tagged, binary=True)
             time_chunk += (time.time() - start)
             
-            words = []
-            ne_concat(chunks, words)
-            return words
+            word_list = []
+            ne_concat(chunks, word_list)
+            return word_list
         else:
-            return nltk.word_tokenize(sent)
+            return words
     
     tok = [word_tokenize(sent) for sent in nltk.sent_tokenize(text)]
     
@@ -178,6 +191,30 @@ def print_args():
             return function(*args, **kwargs)
         return inner
     return decorator
+
+def removeduplicates(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if x not in seen and not seen_add(x)]
+
+from nltk.stem.wordnet import WordNetLemmatizer
+
+def isnumeric(s):
+    try:
+        float(s)
+        return True
+    except:
+        return False
+
+class Filter:
+    def __init__(self, reject_numbers=True):
+        self.reject_numbers = reject_numbers
+    
+    def __call__(self, item):
+        if self.reject_numbers and isnumeric(item):
+            return False
+                
+        return True
 
 @app.task
 def keywords_for_query(
@@ -255,7 +292,23 @@ def keywords_for_query(
     # calculate the keywords
     tmr = Timer("analysis")
     result = []
-    for keyword, _, _ in _dataspace.keywords_of(root_handle):
+    keywords = _dataspace.keywords_of(root_handle)
+    
+    
+
+    #lmtzr = WordNetLemmatizer()
+    #keywords = removeduplicates(lmtzr.lemmatize(w) for w, _, _ in keywords)
+    
+    #porter = nltk.PorterStemmer()
+    #keywords = removeduplicates(porter.stem(w) for w, _, _ in keywords)
+    
+    #snowball = nltk.stem.snowball.SnowballStemmer("english")
+    #keywords = removeduplicates(snowball.stem(w) for w, _, _ in keywords)
+    
+    filt = Filter()
+    keywords = filter(filt, (w for w, _, _ in keywords))
+    
+    for keyword in keywords:
         if len(keyword) < 2: 
             continue
         elif len(result) >= limit:
