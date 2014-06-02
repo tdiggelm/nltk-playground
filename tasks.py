@@ -237,6 +237,8 @@ class Filter:
             
         return True
 
+cache = {}
+
 @app.task
 @print_args()
 def keywords_for_query(
@@ -256,78 +258,82 @@ def keywords_for_query(
     
     text = query
     
-    tmr = Timer("fetch url")
-    if fetch_urls:
-        # find urls
-        matches = re.findall(is_url, text)
-    
-        # currently take a maximum of 5 urls
-        matches = matches[:5]
-    
-        for match in matches:
-            url = "".join(match)
-            url_fetch = url
-            if not url.startswith("http"):
-                url_fetch = "http://" + url
-            # replace url with actual content
-            try:
-                text = text.replace(url, _fetch_url(url_fetch))
-            except BaseException as ex:
-                print(ex)
-                pass
-    tmr.stop()
-    #print(matches, text)
-    
-    tmr = Timer("dataspace prepare")
-    global _corpus
-    global _dataspace
-    if (_corpus != corpus):
-        if corpus == "none":
-            _dataspace = Dataspace()
-        elif corpus == "brown":
-            _dataspace = Dataspace("./brown.hnn")
-        elif corpus == "brown-tagged":
-            _dataspace = Dataspace("./brown-tagged.hnn")
-        elif corpus == "reuters-flat":
-            _dataspace = Dataspace("./reuters-flat.hnn")
-        elif corpus == "reuters-deep":
-            _dataspace = Dataspace("./reuters-deep.hnn")
-        else:
-            raise ValueError("invalid corpus %s" % corpus)
-        _corpus = corpus
-    tmr.stop()
-    
     # TODO: cache result of with text_hash as key
     tmr = Timer("hash")
-    text_hash = hashlib.sha1(text.encode('utf-8')).hexdigest()
+    text_hash = hashlib.sha1(
+        (text+str(preserve_entities)+str(fetch_urls)).encode('utf-8')
+        ).hexdigest()
     tmr.stop()
     
-    tmr = Timer("tokenize")
-    sents = _tokenize(text, preserve_entities=preserve_entities)
-    tmr.stop()
+    keywords = cache.get(text_hash, None)
+    if keywords is None:
+        tmr = Timer("fetch url")
+        if fetch_urls:
+            # find urls
+            matches = re.findall(is_url, text)
     
-    tmr = Timer("insert")
-    # insert the document
-    root_handle = _dataspace.insert(text_hash)
-    for sent in sents:
-        #sent = _normalize(sent) # normalize words before inserting into ds
-        sent_handle = _dataspace.insert(sent)
-        _dataspace.link(root_handle, sent_handle)
-    tmr.stop()
+            # currently take a maximum of 5 urls
+            matches = matches[:5]
     
-    # calculate the keywords
-    tmr = Timer("analysis")
-    result = []
-    keywords = _dataspace.keywords_of(root_handle)
-
-    #lmtzr = WordNetLemmatizer()
-    #keywords = removeduplicates(lmtzr.lemmatize(w) for w, _, _ in keywords)
+            for match in matches:
+                url = "".join(match)
+                url_fetch = url
+                if not url.startswith("http"):
+                    url_fetch = "http://" + url
+                # replace url with actual content
+                try:
+                    text = text.replace(url, _fetch_url(url_fetch))
+                except BaseException as ex:
+                    print(ex)
+                    pass
+        tmr.stop()
+        #print(matches, text)
     
-    #porter = nltk.PorterStemmer()
-    #keywords = removeduplicates(porter.stem(w) for w, _, _ in keywords)
+        tmr = Timer("dataspace prepare")
+        global _corpus
+        global _dataspace
+        if (_corpus != corpus):
+            if corpus == "none":
+                _dataspace = Dataspace()
+            elif corpus == "brown":
+                _dataspace = Dataspace("./brown.hnn")
+            elif corpus == "brown-tagged":
+                _dataspace = Dataspace("./brown-tagged.hnn")
+            elif corpus == "reuters-flat":
+                _dataspace = Dataspace("./reuters-flat.hnn")
+            elif corpus == "reuters-deep":
+                _dataspace = Dataspace("./reuters-deep.hnn")
+            else:
+                raise ValueError("invalid corpus %s" % corpus)
+            _corpus = corpus
+        tmr.stop()
     
-    #snowball = nltk.stem.snowball.SnowballStemmer("english")
-    #keywords = removeduplicates(snowball.stem(w) for w, _, _ in keywords)
+        tmr = Timer("tokenize")
+        sents = _tokenize(text, preserve_entities=preserve_entities)
+        tmr.stop()
+    
+        tmr = Timer("insert")
+        # insert the document
+        root_handle = _dataspace.insert(text_hash)
+        for sent in sents:
+            #sent = _normalize(sent) # normalize words before inserting into ds
+            sent_handle = _dataspace.insert(sent)
+            _dataspace.link(root_handle, sent_handle)
+        tmr.stop()
+    
+        # calculate the keywords
+        tmr = Timer("analysis")
+        result = []
+        keywords = list(_dataspace.keywords_of(root_handle))
+        
+        cache[text_hash] = keywords
+        
+        # delete document
+        tmr = Timer("delete")
+        for sent_handle in _dataspace.children_of(root_handle):
+            _dataspace.delete(sent_handle)
+        _dataspace.delete(root_handle)
+        tmr.stop()
     
     accepted_tags = {"ENTITY", "NOUN", "NUM"}
     if not filter_pos:
@@ -336,30 +342,6 @@ def keywords_for_query(
     filt = Filter(reject_numbers, accepted_tags)
     keywords = filter(filt, (nltk.str2tuple(w) for w, _, _ in keywords))
     result = list(islice(keywords, limit))
-    tmr.stop()
-    
-    #keywords = [word for word, tag in keywords]
-    #keywords = ["%s [%s]" % (word, tag[0]) for word, tag in keywords]
-    
-    #for keyword in keywords:
-    #    if len(result) >= limit:
-    #        break
-    #        
-    #    if associations_per_keyword == 0:
-    #        result.append((keyword,[]))
-    #    else:
-    #        assos = _dataspace.associate(keyword)
-    #        filtered = (quant for quant, _, _ in assos if (quant != keyword 
-    #            and len(quant) >= 2))
-    #        item = (keyword, list(islice(filtered, associations_per_keyword)))
-    #        result.append(item)
-    #tmr.stop()
-    
-    # delete document
-    tmr = Timer("delete")
-    for sent_handle in _dataspace.children_of(root_handle):
-        _dataspace.delete(sent_handle)
-    _dataspace.delete(root_handle)
     tmr.stop()
     
     return result
