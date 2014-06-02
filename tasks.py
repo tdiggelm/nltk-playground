@@ -255,13 +255,13 @@ def keywords_for_query(
         '[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+'
         '|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)'
         '|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))')
-    
+
     text = query
     
     # TODO: cache result of with text_hash as key
     tmr = Timer("hash")
     text_hash = hashlib.sha1(
-        (text+str(preserve_entities)+str(fetch_urls)).encode('utf-8')
+        (text+str(preserve_entities)+str(fetch_urls)+corpus).encode('utf-8')
         ).hexdigest()
     tmr.stop()
     
