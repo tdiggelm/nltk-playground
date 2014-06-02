@@ -97,6 +97,14 @@ def _fetch_url(url):
 
 # brown.tagged_sents(tagset='universal')
     
+def simplify_tag(tup):
+    word, tag = tup
+    try:
+        tag = nltk.tag.mapping.map_tag('en-ptb', 'universal', tag)
+    except:
+        tag = "X"
+    return (word, tag)
+    
 def _tokenize(text, preserve_entities=True):
     time_pos = 0
     time_chunk = 0
@@ -104,13 +112,13 @@ def _tokenize(text, preserve_entities=True):
     def ne_concat(node, result):
         if isinstance(node, nltk.Tree):
             if node.label() == 'NE':
-                result.append(' '.join(word for word, tag in node))
+                node = (' '.join(word for word, tag in node), "ENTITY")
+                result.append(nltk.tuple2str(node))
             else:
                 for child in node:
                     ne_concat(child, result)
         else:
-            word, tag = node
-            result.append(word)
+            result.append(nltk.tuple2str(simplify_tag(node)))
     
     def word_tokenize(sent):
         nonlocal time_pos
@@ -128,11 +136,12 @@ def _tokenize(text, preserve_entities=True):
         words = [word.strip(string.punctuation) for word in words]
         words = [word for word in words if len(word) > 0]
         
+        start = time.time()
+        tagged = tagger.tag(words)
+
+        time_pos += (time.time() - start)
+        
         if preserve_entities:
-            start = time.time()
-            tagged = tagger.tag(words)
-            time_pos += (time.time() - start)
-            
             start = time.time()
             chunks = nltk.ne_chunk(tagged, binary=True)
             time_chunk += (time.time() - start)
@@ -141,9 +150,12 @@ def _tokenize(text, preserve_entities=True):
             ne_concat(chunks, word_list)
             return word_list
         else:
-            return words
+            tagged = [simplify_tag(t) for t in tagged]
+            return [nltk.tuple2str(t) for t in tagged]
     
     tok = [word_tokenize(sent) for sent in nltk.sent_tokenize(text)]
+    
+    tok = [sent for sent in tok if len(sent) > 0]
     
     print("pos tagging took %ss" % time_pos)
     print("chunking took %ss" % time_chunk)
@@ -207,23 +219,35 @@ def isnumeric(s):
         return False
 
 class Filter:
-    def __init__(self, reject_numbers=True):
+    def __init__(self, reject_numbers, accepted_tags):
         self.reject_numbers = reject_numbers
+        self.accepted_tags = accepted_tags
     
     def __call__(self, item):
-        if self.reject_numbers and isnumeric(item):
+        word, tag = item
+        
+        if isnumeric(word):
+            if self.reject_numbers:
+                return False
+            else:
+                return True
+               
+        if not self.accepted_tags is None and tag not in self.accepted_tags:
             return False
-                
+            
         return True
 
 @app.task
+@print_args()
 def keywords_for_query(
     query, 
     corpus="brown",
     limit=20,
     associations_per_keyword=3,
     preserve_entities=True,
-    fetch_urls=True):
+    fetch_urls=True,
+    filter_pos=True,
+    reject_numbers=True):
 
     is_url = ('(?i)\\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+'
         '[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+'
@@ -262,6 +286,8 @@ def keywords_for_query(
             _dataspace = Dataspace()
         elif corpus == "brown":
             _dataspace = Dataspace("./brown.hnn")
+        elif corpus == "brown-tagged":
+            _dataspace = Dataspace("./brown-tagged.hnn")
         elif corpus == "reuters-flat":
             _dataspace = Dataspace("./reuters-flat.hnn")
         elif corpus == "reuters-deep":
@@ -284,7 +310,7 @@ def keywords_for_query(
     # insert the document
     root_handle = _dataspace.insert(text_hash)
     for sent in sents:
-        sent = _normalize(sent) # normalize words before inserting into ds
+        #sent = _normalize(sent) # normalize words before inserting into ds
         sent_handle = _dataspace.insert(sent)
         _dataspace.link(root_handle, sent_handle)
     tmr.stop()
@@ -293,8 +319,6 @@ def keywords_for_query(
     tmr = Timer("analysis")
     result = []
     keywords = _dataspace.keywords_of(root_handle)
-    
-    
 
     #lmtzr = WordNetLemmatizer()
     #keywords = removeduplicates(lmtzr.lemmatize(w) for w, _, _ in keywords)
@@ -305,24 +329,31 @@ def keywords_for_query(
     #snowball = nltk.stem.snowball.SnowballStemmer("english")
     #keywords = removeduplicates(snowball.stem(w) for w, _, _ in keywords)
     
-    filt = Filter()
-    keywords = filter(filt, (w for w, _, _ in keywords))
-    
-    for keyword in keywords:
-        if len(keyword) < 2: 
-            continue
-        elif len(result) >= limit:
-            break
-            
-        if associations_per_keyword == 0:
-            result.append((keyword,[]))
-        else:
-            assos = _dataspace.associate(keyword)
-            filtered = (quant for quant, _, _ in assos if (quant != keyword 
-                and len(quant) >= 2))
-            item = (keyword, list(islice(filtered, associations_per_keyword)))
-            result.append(item)
+    accepted_tags = {"ENTITY", "NOUN", "NUM"}
+    if not filter_pos:
+        accepted_tags = None
+        
+    filt = Filter(reject_numbers, accepted_tags)
+    keywords = filter(filt, (nltk.str2tuple(w) for w, _, _ in keywords))
+    result = list(islice(keywords, limit))
     tmr.stop()
+    
+    #keywords = [word for word, tag in keywords]
+    #keywords = ["%s [%s]" % (word, tag[0]) for word, tag in keywords]
+    
+    #for keyword in keywords:
+    #    if len(result) >= limit:
+    #        break
+    #        
+    #    if associations_per_keyword == 0:
+    #        result.append((keyword,[]))
+    #    else:
+    #        assos = _dataspace.associate(keyword)
+    #        filtered = (quant for quant, _, _ in assos if (quant != keyword 
+    #            and len(quant) >= 2))
+    #        item = (keyword, list(islice(filtered, associations_per_keyword)))
+    #        result.append(item)
+    #tmr.stop()
     
     # delete document
     tmr = Timer("delete")
@@ -333,8 +364,6 @@ def keywords_for_query(
     
     return result
         
-    
-
 @app.task
 def keywords_from_text(text, 
     corpus="brown", limit=20, associations_per_keyword=3,
@@ -362,11 +391,10 @@ def keywords_from_text(text,
     # insert the document
     root_handle = _dataspace.insert(text_hash)
     for sent in sents:
-        sent = _normalize(sent) # normalize words before inserting into ds
+        #sent = _normalize(sent) # normalize words before inserting into ds
         sent_handle = _dataspace.insert(sent)
         _dataspace.link(root_handle, sent_handle)
     
-
     # calculate the keywords
     result = []
     for keyword, _, _ in _dataspace.keywords_of(root_handle):

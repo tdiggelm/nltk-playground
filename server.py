@@ -16,9 +16,12 @@ def index(url=None):
     
 def format_result(fp):
     html = ''
-    for keyword, associations in fp:
-        html += '<li><label class="checkbox"><input type="checkbox" checked="checked" value="%s" />%s</label></li>' % (keyword, keyword)
+    for keyword, tag in fp:
+        html += '<li><label class="checkbox"><input type="checkbox" checked="checked" value="%s" />%s [%s]</label></li>'%(keyword, keyword, tag[0])
     return html
+    
+def format_result_json(fp):
+    return jsonify(keywords=fp)
 
 @app.route('/fingerprint/', defaults={'url': ''}, methods=['GET', 'POST'])
 @app.route('/fingerprint/<path:url>', methods=['GET', 'POST'])
@@ -47,6 +50,12 @@ def fingerprint2(url=None):
     job = request.json
     fp = keywords_for_query.delay(**job).get(timeout=120)
     return format_result(fp)
+    
+@app.route('/fingerprint2.json', methods=['POST'])
+def fingerprint2_json(url=None):
+    job = request.json
+    fp = keywords_for_query.delay(**job).get(timeout=120)
+    return format_result_json(fp)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, threaded=True)

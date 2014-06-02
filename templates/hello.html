@@ -78,15 +78,16 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 </head>
 <body>
 <div id="control">
-<div id="logo" style="width: 100px; float:left; margin-top: -3px; font-size: 24px; font-weight: bold">ai-one</div>
+<div id="logo" style="width: 100px; float:left; margin-top: -3px; font-size: 24px; font-weight: 200">NATHAN</div>
 <div>
 <textarea id="text" name="text" rows="1" cols="80"></textarea>
 <button style="vertical-align: top" id="btnText">Go</button>
 </div>
-<div>
+<div id="options">
 <label style="margin-left: 100px" for="corpus">corpus:</label>
 <select id="corpus" name="corpus">
   <option value="brown">brown</option>
+  <option value="brown-tagged" selected="selected">brown-tagged</option>
   <option value="reuters-flat">reuters-flat</option>
   <option value="reuters-deep">reuters-deep</option>
   <option value="none">none</option>
@@ -100,6 +101,8 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 </select>
 <label class="checkbox"><input id="preserve_entities" checked="checked" type="checkbox" />preserve entities</label>
 <label class="checkbox"><input id="fetch_urls" checked="checked" type="checkbox" />follow urls</label>
+<label class="checkbox"><input id="filter_pos" checked="checked" type="checkbox" />filter pos</label>
+<label class="checkbox"><input id="reject_numbers" checked="checked" type="checkbox" />reject numbers</label>
 </div>
 </div>
 <div>
@@ -142,6 +145,47 @@ function keywords_for_url()
     );
 }
 
+function format_view()
+{
+    var keywords = JSON.parse(localStorage.getItem('keywords'));
+    html = ''
+    keywords.forEach(function(item) {
+        html += '<li><label class="checkbox"><input type="checkbox"'
+        + ' checked="checked" value="' + item[0] + '" />' + item[0] 
+        + ' [' + item[1][0] + ']</label></li>'
+    });
+    $("#result").html(html);
+    $("#searchpane").show();
+    doSearch();
+}
+
+function keywords_for_text_new() 
+{
+    $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
+    $("#searchpane").hide();
+    $("#resultsPane").show();
+    customSearchControl.clearAllResults();
+    $.ajax({
+        type : "POST",
+        url: "http://192.168.2.3:5000/fingerprint2.json",
+        contentType: "application/json",
+        dataType: "json",
+        data: JSON.stringify ({
+            preserve_entities: $('#preserve_entities').is(':checked'),
+            corpus: $('#corpus').val(),
+            limit: parseInt($('#limit').val()),
+            associations_per_keyword: 0,
+            fetch_urls: $('#fetch_urls').is(':checked'),
+            query: $('#text').val(),
+            reject_numbers: $('#reject_numbers').is(':checked')
+        }),
+        success: function(data) {
+            localStorage.setItem('keywords', JSON.stringify(data.keywords));
+            format_view();
+        }
+    });
+}
+
 function keywords_for_text() 
 {
     $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
@@ -158,7 +202,9 @@ function keywords_for_text()
             limit: parseInt($('#limit').val()),
             associations_per_keyword: 0,
             fetch_urls: $('#fetch_urls').is(':checked'),
-            query: $('#text').val()
+            query: $('#text').val(),
+            reject_numbers: $('#reject_numbers').is(':checked'),
+            filter_pos: $('#filter_pos').is(':checked')
         }),
         success: function(data) {
             $("#result").html(data);
@@ -179,6 +225,18 @@ function doSearch()
 $(document).ready(function() {
     $("#result").click(function() {
         doSearch();
+    });
+    
+    $("#options").children(":not(select)").click(function() {
+        if ($('#text').val() != '') {
+            keywords_for_text();   
+        }
+    });
+    
+    $("#options").children("select").change(function() {
+        if ($('#text').val() != '') {
+            keywords_for_text();   
+        }
     });
     
     $('#text').focus(function () {

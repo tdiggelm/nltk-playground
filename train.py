@@ -1,7 +1,16 @@
 import sys
+import nltk
 from nltk.corpus import brown
 from nltk.corpus import reuters
 from nathan.core import Dataspace
+
+def simplify_tag(tup):
+    word, tag = tup
+    try:
+        tag = nltk.tag.mapping.map_tag('en-ptb', 'universal', tag)
+    except:
+        tag = "X"
+    return (word, tag)
 
 def import_brown(ds, silent=False, log=sys.stdout):
     """
@@ -20,6 +29,32 @@ def import_brown(ds, silent=False, log=sys.stdout):
         cat_handle = ds.insert("#%s" % category)
         for sent in brown.sents(categories=category):
             norm = [word.lower() for word in sent]
+            sen_handle = ds.insert(norm)
+            ds.link(cat_handle, sen_handle)
+            if not silent:
+                counter += 1
+                if (counter % 100 == 0):
+                    print("importing %s of %s sentences..." % (counter, total), 
+                        file=log)
+                        
+def import_brown_pos(ds, silent=False, log=sys.stdout):
+    """
+    Import the brown corpus into `ds`. E.g.
+    
+    >>> from nathan.core import Dataspace
+    >>> ds = Dataspace()
+    >>> %time brown.import_brown(ds, silent=True)
+    CPU times: user 12min 28s, sys: 536 ms, total: 12min 29s
+    Wall time: 12min 29s
+    """
+    if not silent:
+        total = len(brown.sents())
+        counter = 0
+    for category in brown.categories():
+        cat_handle = ds.insert("#%s" % category)
+        for sent in brown.tagged_sents(categories=category):
+            #norm = [word.lower() for word in sent]
+            norm = [nltk.tuple2str(simplify_tag(t)) for t in sent]
             sen_handle = ds.insert(norm)
             ds.link(cat_handle, sen_handle)
             if not silent:
