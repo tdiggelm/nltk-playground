@@ -3,6 +3,10 @@ from flask import render_template
 from flask import jsonify
 from flask import request
 from werkzeug.exceptions import BadRequest
+import hashlib
+from itertools import chain, islice
+from collections import OrderedDict
+
 app = Flask(__name__)
 
 from tasks import keywords_from_url, keywords_from_text, keywords_for_query
@@ -45,11 +49,71 @@ def fingerprint(url=None):
 
     return format_result(fp)
     
+class LimitedSizeDict(OrderedDict):
+  def __init__(self, *args, **kwds):
+    self.size_limit = kwds.pop("size_limit", None)
+    OrderedDict.__init__(self, *args, **kwds)
+    self._check_size_limit()
+
+  def __setitem__(self, key, value):
+    OrderedDict.__setitem__(self, key, value)
+    self._check_size_limit()
+
+  def _check_size_limit(self):
+    if self.size_limit is not None:
+      while len(self) > self.size_limit:
+        self.popitem(last=False)
+
+class Filter:    
+    def __init__(self, reject_numbers, accepted_tags):
+        self.reject_numbers = reject_numbers
+        self.accepted_tags = accepted_tags
+    
+    def __call__(self, item):
+        def isnumeric(s):
+            try:
+                float(s)
+                return True
+            except:
+                return False
+        
+        word, tag, score = item
+        
+        if isnumeric(word):
+            if self.reject_numbers:
+                return False
+            else:
+                return True
+               
+        if not self.accepted_tags is None and tag not in self.accepted_tags:
+            return False
+            
+        return True
+
+cache = LimitedSizeDict(size_limit=10)
+    
 @app.route('/fingerprint2', methods=['POST'])
 def fingerprint2(url=None):
-    job = request.json
-    fp = keywords_for_query.delay(**job).get(timeout=120)
-    return format_result(fp)
+    args = dict(request.json)
+    
+    hash_key = hashlib.sha1((
+            args['query'] + str(args['preserve_entities']) 
+            + str(args['fetch_urls']) + str(args['corpus'])
+        ).encode('utf-8')).hexdigest()
+    
+    limit = args.pop('limit', 10)
+    accepted_tags = args.pop('accepted_tags', None)
+    reject_numbers = args.pop('reject_numbers', True);
+    
+    keywords = cache.get(hash_key, None)
+    if keywords is None:
+        keywords = keywords_for_query.delay(**args).get(timeout=120)
+        cache[hash_key] = keywords
+    
+    filtered = filter(Filter(reject_numbers, accepted_tags), keywords)
+    result = list(islice(filtered, limit))
+    
+    return format_result(result)
     
 @app.route('/fingerprint2.json', methods=['POST'])
 def fingerprint2_json(url=None):

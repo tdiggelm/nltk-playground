@@ -87,10 +87,10 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
     <div id="options">
         <label style="margin-left: 100px" for="corpus">corpus:</label>
         <select id="corpus" name="corpus">
-            <option value="brown">brown</option>
-            <option value="brown-tagged" selected="selected">brown-tagged</option>
-            <option value="reuters-flat">reuters-flat</option>
-            <option value="reuters-deep">reuters-deep</option>
+            <!--<option value="brown">brown</option>
+            <option value="brown-tagged" >brown-tagged</option>
+            <option value="reuters-deep">reuters-deep</option>-->
+            <option value="reuters-tagged" selected="selected">reuters-tagged</option>
             <option value="none">none</option>
         </select>
         <label for="limit">number of keywords:</label>
@@ -108,7 +108,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
     <div id="opts_view">
         <label style="margin-left: 100px" class="checkbox"><input id="reject_numbers" checked="checked" type="checkbox" />reject numbers</label>
         <label class="checkbox"><input id="filter_pos" checked="checked" type="checkbox" />filter pos</label>
-        <label for="accepted_tags">| accepted tags:</label><input id="accepted_tags" style="margin-left: 10px; width: 120px" value="NE, NN, NNS" type="text" />
+        <label for="accepted_tags">| accepted tags:</label><input id="accepted_tags" style="margin-left: 10px; width: 130px" value="NE, NN, NNS, CD, JJ" type="text" />
     </div>
 </div>
 <div>
@@ -202,7 +202,7 @@ function keywords_for_text()
     if ($('#filter_pos').is(':checked')) {
         accepted_tags = $('#accepted_tags').val().split(',');
         accepted_tags = accepted_tags.map(function(tag) {
-            return tag.trim();
+            return tag.trim().toUpperCase();
         });
     }
     $.ajax({

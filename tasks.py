@@ -37,8 +37,8 @@ app = Celery('tasks', backend='redis://localhost',
     broker='amqp://guest@localhost//')
 
 
-_dataspace = Dataspace("./brown.hnn")
-_corpus = "brown"
+_dataspace = Dataspace("./reuters-tagged.hnn")
+_corpus = "reuters-tagged"
 
 #tagger = nltk.data.load(nltk.tag._POS_TAGGER)
 tagger = nltk.data.load("./models/treebank_brill_aubt/treebank_brill_aubt.pickle")
@@ -105,14 +105,14 @@ def simplify_tag(tup):
         tag = "X"
     return (word, tag)
     
-def _tokenize(text, preserve_entities=True):
+def _tokenize(text, preserve_entities=True, ner_binary=True):
     time_pos = 0
     time_chunk = 0
     
     def ne_concat(node, result):
         if isinstance(node, nltk.Tree):
-            if node.label() == 'NE':
-                node = (' '.join(word for word, tag in node), 'NE')
+            if node.label() != 'S':
+                node = (' '.join(word for word, tag in node), node.label())
                 result.append(nltk.tuple2str(node))
             else:
                 for child in node:
@@ -144,7 +144,7 @@ def _tokenize(text, preserve_entities=True):
         
         if preserve_entities:
             start = time.time()
-            chunks = nltk.ne_chunk(tagged, binary=True)
+            chunks = nltk.ne_chunk(tagged, binary=ner_binary)
             time_chunk += (time.time() - start)
             
             word_list = []
@@ -212,45 +212,15 @@ def removeduplicates(seq):
 
 from nltk.stem.wordnet import WordNetLemmatizer
 
-def isnumeric(s):
-    try:
-        float(s)
-        return True
-    except:
-        return False
-
-class Filter:
-    def __init__(self, reject_numbers, accepted_tags):
-        self.reject_numbers = reject_numbers
-        self.accepted_tags = accepted_tags
-    
-    def __call__(self, item):
-        word, tag, score = item
-        
-        if isnumeric(word):
-            if self.reject_numbers:
-                return False
-            else:
-                return True
-               
-        if not self.accepted_tags is None and tag not in self.accepted_tags:
-            return False
-            
-        return True
-
-cache = {}
-
 @app.task
 @print_args()
 def keywords_for_query(
     query, 
     corpus="brown",
-    limit=20,
+    limit=100,
     associations_per_keyword=3,
     preserve_entities=True,
-    fetch_urls=True,
-    accepted_tags = {"NE"},
-    reject_numbers=True):
+    fetch_urls=True):
 
     is_url = ('(?i)\\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+'
         '[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+'
@@ -261,85 +231,69 @@ def keywords_for_query(
     
     # TODO: cache result of with text_hash as key
     tmr = Timer("hash")
-    text_hash = hashlib.sha1(
-        (text+str(preserve_entities)+str(fetch_urls)+corpus).encode('utf-8')
-        ).hexdigest()
+    text_hash = hashlib.sha1(text.encode('utf-8')).hexdigest()
     tmr.stop()
     
-    keywords = cache.get(text_hash, None)
-    if keywords is None:
-        tmr = Timer("fetch url")
-        if fetch_urls:
-            # find urls
-            matches = re.findall(is_url, text)
+    tmr = Timer("fetch url")
+    if fetch_urls:
+        # find urls
+        matches = re.findall(is_url, text)
+
+        # currently take a maximum of 5 urls
+        matches = matches[:5]
+
+        for match in matches:
+            url = "".join(match)
+            url_fetch = url
+            if not url.startswith("http"):
+                url_fetch = "http://" + url
+            # replace url with actual content
+            try:
+                text = text.replace(url, _fetch_url(url_fetch))
+            except BaseException as ex:
+                print(ex)
+                pass
+    tmr.stop()
+    #print(matches, text)
+
+    tmr = Timer("dataspace prepare")
+    global _corpus
+    global _dataspace
+    if (_corpus != corpus):
+        if corpus == "none":
+            _dataspace = Dataspace()
+        elif corpus == "reuters-tagged":
+            _dataspace = Dataspace("./reuters-tagged.hnn")
+        else:
+            raise ValueError("invalid corpus %s" % corpus)
+        _corpus = corpus
+    tmr.stop()
+
+    tmr = Timer("tokenize")
+    sents = _tokenize(text, preserve_entities=preserve_entities)
+    tmr.stop()
+
+    tmr = Timer("insert")
+    # insert the document
+    root_handle = _dataspace.insert(text_hash)
+    for sent in sents:
+        #sent = _normalize(sent) # normalize words before inserting into ds
+        #print(sent)
+        sent_handle = _dataspace.insert(sent)
+        _dataspace.link(root_handle, sent_handle)
+    tmr.stop()
+
+    # calculate the keywords
+    tmr = Timer("analysis")
+    result = []
+    keywords = list(_dataspace.keywords_of(root_handle))
     
-            # currently take a maximum of 5 urls
-            matches = matches[:5]
-    
-            for match in matches:
-                url = "".join(match)
-                url_fetch = url
-                if not url.startswith("http"):
-                    url_fetch = "http://" + url
-                # replace url with actual content
-                try:
-                    text = text.replace(url, _fetch_url(url_fetch))
-                except BaseException as ex:
-                    print(ex)
-                    pass
-        tmr.stop()
-        #print(matches, text)
-    
-        tmr = Timer("dataspace prepare")
-        global _corpus
-        global _dataspace
-        if (_corpus != corpus):
-            if corpus == "none":
-                _dataspace = Dataspace()
-            elif corpus == "brown":
-                _dataspace = Dataspace("./brown.hnn")
-            elif corpus == "brown-tagged":
-                _dataspace = Dataspace("./brown-tagged.hnn")
-            elif corpus == "reuters-flat":
-                _dataspace = Dataspace("./reuters-flat.hnn")
-            elif corpus == "reuters-deep":
-                _dataspace = Dataspace("./reuters-deep.hnn")
-            else:
-                raise ValueError("invalid corpus %s" % corpus)
-            _corpus = corpus
-        tmr.stop()
-    
-        tmr = Timer("tokenize")
-        sents = _tokenize(text, preserve_entities=preserve_entities)
-        tmr.stop()
-    
-        tmr = Timer("insert")
-        # insert the document
-        root_handle = _dataspace.insert(text_hash)
-        for sent in sents:
-            #sent = _normalize(sent) # normalize words before inserting into ds
-            print(sent)
-            sent_handle = _dataspace.insert(sent)
-            _dataspace.link(root_handle, sent_handle)
-        tmr.stop()
-    
-        # calculate the keywords
-        tmr = Timer("analysis")
-        result = []
-        keywords = list(_dataspace.keywords_of(root_handle))
-        
-        cache[text_hash] = keywords
-        
-        # delete document
-        tmr = Timer("delete")
-        for sent_handle in _dataspace.children_of(root_handle):
-            _dataspace.delete(sent_handle)
-        _dataspace.delete(root_handle)
-        tmr.stop()
-    
-    #accepted_tags = {"NE"}
-    #if not filter_pos:
-    #    accepted_tags = None
+    # delete document
+    tmr = Timer("delete")
+    for sent_handle in _dataspace.children_of(root_handle):
+        _dataspace.delete(sent_handle)
+    _dataspace.delete(root_handle)
+    tmr.stop()
         
     def unpack_keyword(item):
         val, vty, pty = item
@@ -347,13 +301,7 @@ def keywords_for_query(
         return (word, pos, vty*pty)
     keywords = (unpack_keyword(item) for item in keywords)
     
-    filt = Filter(reject_numbers, accepted_tags)
-    keywords = filter(filt, keywords)
-    
-    result = list(islice(keywords, limit))
-    tmr.stop()
-    
-    return result
+    return list(islice(keywords, limit))
         
 @app.task
 def keywords_from_text(text, 
