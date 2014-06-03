@@ -78,41 +78,47 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
 </head>
 <body>
 <div id="control">
-<div id="logo" style="color: #2aa198; width: 100px; float:left; margin-top: -2px; font-size: 22px; font-weight: 600; letter-spacing: -1px">NATHAN</div>
+    <div id="logo" style="color: #2aa198; width: 100px; float:left; margin-top: -2px; font-size: 22px; font-weight: 600; letter-spacing: -1px">NATHAN
+    </div>
+    <div>
+        <textarea id="text" name="text" rows="1" cols="80"></textarea>
+        <button style="vertical-align: top" id="btnText">Go</button>
+    </div>
+    <div id="options">
+        <label style="margin-left: 100px" for="corpus">corpus:</label>
+        <select id="corpus" name="corpus">
+            <option value="brown">brown</option>
+            <option value="brown-tagged" selected="selected">brown-tagged</option>
+            <option value="reuters-flat">reuters-flat</option>
+            <option value="reuters-deep">reuters-deep</option>
+            <option value="none">none</option>
+        </select>
+        <label for="limit">number of keywords:</label>
+        <select id="limit" name="limit">
+            <option value="5">5</option>
+            <option value="10" selected="selected">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="500">500</option>
+        </select>
+        <label class="checkbox"><input id="preserve_entities" checked="checked" type="checkbox" />preserve entities</label>
+        <label class="checkbox"><input id="fetch_urls" checked="checked" type="checkbox" />follow urls</label>
+    </div>
+    <div id="opts_view">
+        <label style="margin-left: 100px" class="checkbox"><input id="reject_numbers" checked="checked" type="checkbox" />reject numbers</label>
+        <label class="checkbox"><input id="filter_pos" checked="checked" type="checkbox" />filter pos</label>
+        <label for="accepted_tags">| accepted tags:</label><input id="accepted_tags" style="margin-left: 10px; width: 120px" value="NE, NN, NNS" type="text" />
+    </div>
+</div>
 <div>
-<textarea id="text" name="text" rows="1" cols="80"></textarea>
-<button style="vertical-align: top" id="btnText">Go</button>
-</div>
-<div id="options">
-<label style="margin-left: 100px" for="corpus">corpus:</label>
-<select id="corpus" name="corpus">
-  <option value="brown">brown</option>
-  <option value="brown-tagged" selected="selected">brown-tagged</option>
-  <option value="reuters-flat">reuters-flat</option>
-  <option value="reuters-deep">reuters-deep</option>
-  <option value="none">none</option>
-</select>
-<label for="limit">number of keywords:</label>
-<select id="limit" name="limit">
-  <option value="5">5</option>
-  <option value="10" selected="selected">10</option>
-  <option value="25">25</option>
-  <option value="50">50</option>
-</select>
-<label class="checkbox"><input id="preserve_entities" checked="checked" type="checkbox" />preserve entities</label>
-<label class="checkbox"><input id="fetch_urls" checked="checked" type="checkbox" />follow urls</label>
-<label class="checkbox"><input id="filter_pos" checked="checked" type="checkbox" />filter pos</label>
-<label class="checkbox"><input id="reject_numbers" checked="checked" type="checkbox" />reject numbers</label>
-</div>
-</div>
-<div>
-<div id="resultsPane">
-    <button id="btn-sel-all">select all</button>
-    <button id="btn-sel-none">select none</button>
-<ul id="result">
-</ul>
-<div style="clear:both"></div>
-</div>
+    <div id="resultsPane">
+        <button id="btn-sel-all">select all</button>
+        <button id="btn-sel-none">select none</button>
+        <ul id="result">
+        </ul>
+        <div style="clear:both"></div>
+    </div>
 </div>
 <div id="searchpane" style="display:none; margin-top: 10px; clear:both; background-color: white; padding-left: 110px; padding-right: 110px">
         <script type="text/javascript" src="//www.google.com/cse/brand?form=cse-search-box-form-id&inputbox=cse-search-input-box-id"></script>
@@ -192,11 +198,18 @@ function keywords_for_text()
     $("#searchpane").hide();
     $("#resultsPane").show();
     customSearchControl.clearAllResults();
+    accepted_tags = null;
+    if ($('#filter_pos').is(':checked')) {
+        accepted_tags = $('#accepted_tags').val().split(',');
+        accepted_tags = accepted_tags.map(function(tag) {
+            return tag.trim();
+        });
+    }
     $.ajax({
         type : "POST",
         url: "http://192.168.2.3:5000/fingerprint2",
         contentType: "application/json",
-        data: JSON.stringify ({
+        data: JSON.stringify ({            
             preserve_entities: $('#preserve_entities').is(':checked'),
             corpus: $('#corpus').val(),
             limit: parseInt($('#limit').val()),
@@ -204,7 +217,7 @@ function keywords_for_text()
             fetch_urls: $('#fetch_urls').is(':checked'),
             query: $('#text').val(),
             reject_numbers: $('#reject_numbers').is(':checked'),
-            filter_pos: $('#filter_pos').is(':checked')
+            accepted_tags: accepted_tags
         }),
         success: function(data) {
             $("#result").html(data);
@@ -225,6 +238,18 @@ function doSearch()
 $(document).ready(function() {
     $("#result").click(function() {
         doSearch();
+    });
+    
+    $("#opts_view").find(":checkbox").click(function() {
+        if ($('#text').val() != '') {
+            keywords_for_text();   
+        }
+    });
+    
+    $("#opts_view").find(":text").change(function() {
+        if ($('#text').val() != '') {
+            keywords_for_text();   
+        }
     });
     
     $("#options").children(":not(select)").click(function() {

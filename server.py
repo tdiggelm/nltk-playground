@@ -16,8 +16,8 @@ def index(url=None):
     
 def format_result(fp):
     html = ''
-    for keyword, tag in fp:
-        html += '<li><label class="checkbox"><input type="checkbox" checked="checked" value="%s" />%s [%s]</label></li>'%(keyword, keyword, tag[0])
+    for keyword, tag, score in fp:
+        html += '<li style="position: relative"><div style="position: absolute; top: 2px; font-size: 11px; font-weight: 100; right:5px; color: #d33682">%s, %s</div><label class="checkbox"><input type="checkbox" checked="checked" value="%s" />%s</label></li>'%(tag, score, keyword, keyword)
     return html
     
 def format_result_json(fp):

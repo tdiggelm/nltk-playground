@@ -112,13 +112,14 @@ def _tokenize(text, preserve_entities=True):
     def ne_concat(node, result):
         if isinstance(node, nltk.Tree):
             if node.label() == 'NE':
-                node = (' '.join(word for word, tag in node), "ENTITY")
+                node = (' '.join(word for word, tag in node), 'NE')
                 result.append(nltk.tuple2str(node))
             else:
                 for child in node:
                     ne_concat(child, result)
         else:
-            result.append(nltk.tuple2str(simplify_tag(node)))
+            #node = simplify_tag(node)
+            result.append(nltk.tuple2str(node))
     
     def word_tokenize(sent):
         nonlocal time_pos
@@ -150,7 +151,7 @@ def _tokenize(text, preserve_entities=True):
             ne_concat(chunks, word_list)
             return word_list
         else:
-            tagged = [simplify_tag(t) for t in tagged]
+            #tagged = [simplify_tag(t) for t in tagged]
             return [nltk.tuple2str(t) for t in tagged]
     
     tok = [word_tokenize(sent) for sent in nltk.sent_tokenize(text)]
@@ -224,7 +225,7 @@ class Filter:
         self.accepted_tags = accepted_tags
     
     def __call__(self, item):
-        word, tag = item
+        word, tag, score = item
         
         if isnumeric(word):
             if self.reject_numbers:
@@ -248,7 +249,7 @@ def keywords_for_query(
     associations_per_keyword=3,
     preserve_entities=True,
     fetch_urls=True,
-    filter_pos=True,
+    accepted_tags = {"NE"},
     reject_numbers=True):
 
     is_url = ('(?i)\\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+'
@@ -317,6 +318,7 @@ def keywords_for_query(
         root_handle = _dataspace.insert(text_hash)
         for sent in sents:
             #sent = _normalize(sent) # normalize words before inserting into ds
+            print(sent)
             sent_handle = _dataspace.insert(sent)
             _dataspace.link(root_handle, sent_handle)
         tmr.stop()
@@ -335,12 +337,19 @@ def keywords_for_query(
         _dataspace.delete(root_handle)
         tmr.stop()
     
-    accepted_tags = {"ENTITY", "NOUN", "NUM"}
-    if not filter_pos:
-        accepted_tags = None
+    #accepted_tags = {"NE"}
+    #if not filter_pos:
+    #    accepted_tags = None
         
+    def unpack_keyword(item):
+        val, vty, pty = item
+        word, pos = nltk.str2tuple(val)
+        return (word, pos, vty*pty)
+    keywords = (unpack_keyword(item) for item in keywords)
+    
     filt = Filter(reject_numbers, accepted_tags)
-    keywords = filter(filt, (nltk.str2tuple(w) for w, _, _ in keywords))
+    keywords = filter(filt, keywords)
+    
     result = list(islice(keywords, limit))
     tmr.stop()
     
