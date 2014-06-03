@@ -105,6 +105,9 @@ def fingerprint2(url=None):
     accepted_tags = args.pop('accepted_tags', None)
     reject_numbers = args.pop('reject_numbers', True);
     
+    # set to maximum limit
+    args['limit'] = 500
+    
     keywords = cache.get(hash_key, None)
     if keywords is None:
         keywords = keywords_for_query.delay(**args).get(timeout=120)
