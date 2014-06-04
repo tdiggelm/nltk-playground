@@ -216,7 +216,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 @print_args()
 def keywords_for_query(
     query, 
-    corpus="brown",
+    corpus="reuters-tagged",
     limit=100,
     associations_per_keyword=3,
     preserve_entities=True,
