@@ -90,7 +90,7 @@ def bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, 
                 kw = keywords_for_query(text, corpus=corpus, preserve_entities=preserve_entities, analyse_pos=analyse_pos, fetch_urls=False)
                 filtered = filter(Filter(reject_numbers, accepted_tags), kw)
                 filtered = list(islice(filtered, len(keywords)))
-
+                
                 result['score'] = keywords_similarity(keywords, filtered)
             else:
                 result['score'] = 0

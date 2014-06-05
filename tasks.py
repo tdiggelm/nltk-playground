@@ -102,7 +102,7 @@ class Filter:
 
 def _fetch_url(url):
     #html = urlopen(url).read()
-    with urlopen(url) as page:
+    with urlopen(url, timeout=10) as page:
         html = decode(page)
     soup = BeautifulSoup(html)
 

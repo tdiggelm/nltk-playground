@@ -118,17 +118,18 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
         <button id="btn-sel-all">select all</button>
         <button id="btn-sel-none">select none</button>
         <button id="btn-bing">find similar pages</button>
+        <label class="checkbox"><input id="sorted_similarity" checked="checked" type="checkbox" />sort similarity order</label>
         <ul id="result">
         </ul>
         <div style="clear:both"></div>
     </div>
 </div>
-<div id="searchpane" style="display:none; margin-top: 10px; clear:both; background-color: white; padding-left: 110px; padding-right: 110px">
+<div id="searchpane" style="display:none; margin-top: 10px; clear:both; background-color: white; padding-left: 110px; padding-right: 110px; color: #002b36">
         <script type="text/javascript" src="//www.google.com/cse/brand?form=cse-search-box-form-id&inputbox=cse-search-input-box-id"></script>
     <button style="display: none" id="btnSearch">Refresh</button>
     <div id="search">Loading....</div>
 </div>
-<div id="searchpane-bing" style="display:none; margin-top: 10px; clear:both; background-color: white; padding-left: 110px; padding-right: 110px; color: #002b36">
+<div id="searchpane-bing" style="display:none; margin-top: 20px; clear:both; background-color: white; padding-left: 110px; padding-right: 110px; color: #002b36">
 </div>
 <script language="javascript">
 var customSearchControl = null;
@@ -268,6 +269,7 @@ function doBingSearch()
             preserve_entities: $('#preserve_entities').is(':checked'),
             analyse_pos: $('#analyse_pos').is(':checked'),
             reject_numbers: $('#reject_numbers').is(':checked'),
+            sorted: $('#sorted_similarity').is(':checked'),
             accepted_tags: accepted_tags
         }),
         success: function(data) {

@@ -65,22 +65,32 @@ class LimitedSizeDict(OrderedDict):
       while len(self) > self.size_limit:
         self.popitem(last=False)
 
-cache = LimitedSizeDict(size_limit=10)
+fingerprint_cache = LimitedSizeDict(size_limit=10)
+keywords_cache = LimitedSizeDict(size_limit=10)
 
 import re
 def icasereplace(string, find, replace):
     p = re.compile('\\b' + re.escape(find) + '\\b', re.IGNORECASE)
     return p.sub(replace, string)
 
+import pickle
+def hash_args(args):
+    dump = pickle.dumps(args)
+    return hashlib.sha1(dump).hexdigest()
+
 @app.route('/search', methods=['POST'])
 def search():
     """
-    TODO: retrieve keywords and return scored result list (also cache it)
+    TODO: retrieve keywords and return scored result list (also fingerprint_cache it)
     """
     args = dict(request.json)
     sort = args.pop('sorted', True)
     
-    result = bing_find.delay(**args).get(timeout=120)
+    hash_id = hash_args(args)
+    result = keywords_cache.get(hash_id, None)
+    if result is None:
+        result = bing_find.delay(**args).get(timeout=120)
+        keywords_cache[hash_id] = result
     
     if sort:
         result = sorted(result, key=lambda i: i['score'], reverse=True)
@@ -120,10 +130,10 @@ def fingerprint2(url=None):
     # set to maximum limit
     args['limit'] = 500
     
-    keywords = cache.get(hash_key, None)
+    keywords = fingerprint_cache.get(hash_key, None)
     if keywords is None:
         keywords = keywords_for_query.delay(**args).get(timeout=120)
-        cache[hash_key] = keywords
+        fingerprint_cache[hash_key] = keywords
     
     filtered = filter(Filter(reject_numbers, accepted_tags), keywords)
     result = list(islice(filtered, limit))
