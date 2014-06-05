@@ -91,6 +91,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
             <option value="brown-tagged" >brown-tagged</option>
             <option value="reuters-deep">reuters-deep</option>-->
             <option value="reuters-tagged" selected="selected">reuters-tagged</option>
+            <option value="reuters-flat">reuters-flat</option>
             <option value="none">none</option>
         </select>
         <label for="limit">number of keywords:</label>
@@ -102,6 +103,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
             <option value="100">100</option>
             <option value="500">500</option>
         </select>
+        <label class="checkbox"><input id="analyse_pos" checked="checked" type="checkbox" />analyse pos</label>
         <label class="checkbox"><input id="preserve_entities" checked="checked" type="checkbox" />preserve entities</label>
         <label class="checkbox"><input id="fetch_urls" checked="checked" type="checkbox" />follow urls</label>
     </div>
@@ -115,6 +117,7 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
     <div id="resultsPane">
         <button id="btn-sel-all">select all</button>
         <button id="btn-sel-none">select none</button>
+        <button id="btn-bing">find similar pages</button>
         <ul id="result">
         </ul>
         <div style="clear:both"></div>
@@ -124,6 +127,8 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
         <script type="text/javascript" src="//www.google.com/cse/brand?form=cse-search-box-form-id&inputbox=cse-search-input-box-id"></script>
     <button style="display: none" id="btnSearch">Refresh</button>
     <div id="search">Loading....</div>
+</div>
+<div id="searchpane-bing" style="display:none; margin-top: 10px; clear:both; background-color: white; padding-left: 110px; padding-right: 110px; color: #002b36">
 </div>
 <script language="javascript">
 var customSearchControl = null;
@@ -196,6 +201,7 @@ function keywords_for_text()
 {
     $("#result").html('<li style="font-style:italic;list-style-type: none;">looking for keywords, just for you...</li>');
     $("#searchpane").hide();
+    $("#searchpane-bing").hide();
     $("#resultsPane").show();
     customSearchControl.clearAllResults();
     accepted_tags = null;
@@ -211,6 +217,7 @@ function keywords_for_text()
         contentType: "application/json",
         data: JSON.stringify ({            
             preserve_entities: $('#preserve_entities').is(':checked'),
+            analyse_pos: $('#analyse_pos').is(':checked'),
             corpus: $('#corpus').val(),
             limit: parseInt($('#limit').val()),
             associations_per_keyword: 0,
@@ -221,7 +228,6 @@ function keywords_for_text()
         }),
         success: function(data) {
             $("#result").html(data);
-            $("#searchpane").show();
             doSearch();
         }
     });
@@ -229,10 +235,46 @@ function keywords_for_text()
 
 function doSearch() 
 {
+    $("#searchpane-bing").hide();
+    $("#searchpane").show();
     var query = $("#result input:checked").map(function() {
         return $(this).val();
     }).get().join('" "');
    customSearchControl.execute('"'+query+'"');
+}
+
+function doBingSearch()
+{
+    var keywords = [];
+    $("#searchpane").hide();
+    $("#searchpane-bing").show();
+    $("#searchpane-bing").html('<span style="font-style: italic">searching the web for similar pages...</span>');
+    $("#result input:checked").each(function() {
+        var tag_and_score = $(this).parent().parent().children("div").text();
+        tag_and_score = tag_and_score.split(',');
+        tag_and_score = tag_and_score.map(function(tag) {
+            return tag.trim();
+        });
+        keywords.push(
+            [$(this).val(), tag_and_score[0], parseInt(tag_and_score[1])]);
+    });
+    $.ajax({
+        type : "POST",
+        url: "http://192.168.2.3:5000/search",
+        contentType: "application/json",
+        data: JSON.stringify ({            
+            keywords: keywords,
+            corpus: $('#corpus').val(),
+            preserve_entities: $('#preserve_entities').is(':checked'),
+            analyse_pos: $('#analyse_pos').is(':checked'),
+            reject_numbers: $('#reject_numbers').is(':checked'),
+            accepted_tags: accepted_tags
+        }),
+        success: function(data) {
+            $("#searchpane-bing").html(data);
+            $("#searchpane-bing").show();
+        }
+    });
 }
 
 $(document).ready(function() {
@@ -290,6 +332,10 @@ $(document).ready(function() {
          var query = $("#result input").each(function() {
              return $(this).prop('checked', true);
          });
+    });
+    
+    $("#btn-bing").click(function(){
+        doBingSearch();
     });
     
     $("#btn-sel-none").click(function(){

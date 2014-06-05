@@ -73,6 +73,33 @@ def decode(page):
 
     return data
 
+class Filter:    
+    def __init__(self, reject_numbers, accepted_tags):
+        self.reject_numbers = reject_numbers
+        self.accepted_tags = accepted_tags
+    
+    def __call__(self, item):
+        def isnumeric(s):
+            try:
+                float(s)
+                return True
+            except:
+                return False
+        
+        word, tag, score = item
+        
+        if isnumeric(word):
+            if self.reject_numbers:
+                return False
+            else:
+                return True
+               
+        if not self.accepted_tags is None and (
+            tag != "N/A" and tag not in self.accepted_tags):
+            return False
+            
+        return True
+
 def _fetch_url(url):
     #html = urlopen(url).read()
     with urlopen(url) as page:
@@ -105,7 +132,7 @@ def simplify_tag(tup):
         tag = "X"
     return (word, tag)
     
-def _tokenize(text, preserve_entities=True, ner_binary=True):
+def _tokenize(text, preserve_entities=True, analyse_pos=True, ner_binary=True):
     time_pos = 0
     time_chunk = 0
     
@@ -137,22 +164,23 @@ def _tokenize(text, preserve_entities=True, ner_binary=True):
         words = [word.strip(string.punctuation) for word in words]
         words = [word for word in words if len(word) > 0]
         
-        start = time.time()
-        tagged = tagger.tag(words)
-
-        time_pos += (time.time() - start)
-        
-        if preserve_entities:
-            start = time.time()
-            chunks = nltk.ne_chunk(tagged, binary=ner_binary)
-            time_chunk += (time.time() - start)
-            
-            word_list = []
-            ne_concat(chunks, word_list)
-            return word_list
+        if not analyse_pos:
+            return words
         else:
-            #tagged = [simplify_tag(t) for t in tagged]
-            return [nltk.tuple2str(t) for t in tagged]
+            start = time.time()
+            tagged = tagger.tag(words)
+            time_pos += (time.time() - start)
+        
+            if preserve_entities:
+                start = time.time()
+                chunks = nltk.ne_chunk(tagged, binary=ner_binary)
+                time_chunk += (time.time() - start)
+            
+                word_list = []
+                ne_concat(chunks, word_list)
+                return word_list
+            else:
+                return [nltk.tuple2str(t) for t in tagged]
     
     tok = [word_tokenize(sent) for sent in nltk.sent_tokenize(text)]
     
@@ -212,13 +240,14 @@ def removeduplicates(seq):
 
 from nltk.stem.wordnet import WordNetLemmatizer
 
+#@print_args()
 @app.task
-@print_args()
 def keywords_for_query(
     query, 
     corpus="reuters-tagged",
     limit=100,
     associations_per_keyword=3,
+    analyse_pos=True,
     preserve_entities=True,
     fetch_urls=True):
 
@@ -260,17 +289,16 @@ def keywords_for_query(
     global _corpus
     global _dataspace
     if (_corpus != corpus):
-        if corpus == "none":
-            _dataspace = Dataspace()
-        elif corpus == "reuters-tagged":
-            _dataspace = Dataspace("./reuters-tagged.hnn")
+        if corpus in {"none", "reuters-tagged", "reuters-flat"}:
+            _dataspace = Dataspace("./%s.hnn" % _corpus)
         else:
             raise ValueError("invalid corpus %s" % corpus)
         _corpus = corpus
     tmr.stop()
 
     tmr = Timer("tokenize")
-    sents = _tokenize(text, preserve_entities=preserve_entities)
+    sents = _tokenize(text, analyse_pos=analyse_pos,
+        preserve_entities=preserve_entities)
     tmr.stop()
 
     tmr = Timer("insert")
@@ -297,11 +325,28 @@ def keywords_for_query(
         
     def unpack_keyword(item):
         val, vty, pty = item
-        word, pos = nltk.str2tuple(val)
+        if analyse_pos:
+            word, pos = nltk.str2tuple(val)
+        else:
+            word = val
+            pos = "N/A"
         return (word, pos, vty*pty)
     keywords = (unpack_keyword(item) for item in keywords)
     
     return list(islice(keywords, limit))
+
+from bing import bing_find as _bing_find
+
+@app.task
+@print_args()
+def bing_find(
+    keywords,
+    corpus="reuters-tagged",
+    preserve_entities=True,
+    analyse_pos=True,
+    accepted_tags={'NE', 'NN', 'NNS', 'CD', 'JJ'},
+    reject_numbers=True):
+    return list(_bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, accepted_tags))
         
 @app.task
 def keywords_from_text(text, 

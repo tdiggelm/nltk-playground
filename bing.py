@@ -5,6 +5,9 @@ import base64
 import json
 from tasks import _fetch_url, _tokenize, keywords_for_query
 from multiprocessing import Pool
+from multiprocessing.dummy import Pool as ThreadPool
+from tasks import Filter
+from itertools import islice
 
 def bing_search(query, search_type="Web", top=50):
     #search_type: Web, Image, News, Video
@@ -50,23 +53,48 @@ def keywords_similarity(k1, k2):
     n2 = np.linalg.norm(v2)
     
     return np.dot(v1, v2) / n1 / n2
+    
+def fetch_url(url):
+    try:
+        return _fetch_url(url)
+    except:
+        return None
 
-def bing_find(keywords, top=10, similarity_scores=True):
+def fetch_urls(urls):
+    with ThreadPool(10) as pool:
+        content = pool.map(lambda url: (url, fetch_url(url)), urls)
+    content = dict(content)
+    return content
+
+def bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, accepted_tags, top=10, similarity_scores=True):
     query = '"' + '" "'.join(item[0] for item in keywords) + '"'
     search_results = bing_search(query, top=top)
+    
+    urls = [item['Url'] for item in search_results]
+    content = fetch_urls(urls)
 
+    counter = 1
     for item in search_results:
         result = {
             'url': item['Url'],
             'title': item['Title'],
-            'desc': item['Description']
+            'desc': item['Description'],
+            'pos': counter
         }
         
+        counter += 1
+        
         if similarity_scores:
-            try:
-                kw = keywords_for_query(result['url'], limit=len(keywords))
-                result['score'] = keywords_similarity(keywords, kw)
-            except UnicodeDecodeError:
-                result['score'] = None
+            text = content[result['url']]
+            if not text is None:
+                kw = keywords_for_query(text, corpus=corpus, preserve_entities=preserve_entities, analyse_pos=analyse_pos, fetch_urls=False)
+                filtered = filter(Filter(reject_numbers, accepted_tags), kw)
+                filtered = list(islice(filtered, len(keywords)))
+
+                result['score'] = keywords_similarity(keywords, filtered)
+            else:
+                result['score'] = 0
+        else:
+            result['score'] = 0
         
         yield result

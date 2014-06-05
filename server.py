@@ -6,10 +6,11 @@ from werkzeug.exceptions import BadRequest
 import hashlib
 from itertools import chain, islice
 from collections import OrderedDict
+from tasks import Filter
 
 app = Flask(__name__)
 
-from tasks import keywords_from_url, keywords_from_text, keywords_for_query
+from tasks import keywords_from_url, keywords_from_text, keywords_for_query, bing_find
 
 def str_to_bool(string):
     return string is not None and (string == '1' or string.lower() == 'true')
@@ -64,33 +65,43 @@ class LimitedSizeDict(OrderedDict):
       while len(self) > self.size_limit:
         self.popitem(last=False)
 
-class Filter:    
-    def __init__(self, reject_numbers, accepted_tags):
-        self.reject_numbers = reject_numbers
-        self.accepted_tags = accepted_tags
-    
-    def __call__(self, item):
-        def isnumeric(s):
-            try:
-                float(s)
-                return True
-            except:
-                return False
-        
-        word, tag, score = item
-        
-        if isnumeric(word):
-            if self.reject_numbers:
-                return False
-            else:
-                return True
-               
-        if not self.accepted_tags is None and tag not in self.accepted_tags:
-            return False
-            
-        return True
-
 cache = LimitedSizeDict(size_limit=10)
+
+import re
+def icasereplace(string, find, replace):
+    p = re.compile('\\b' + re.escape(find) + '\\b', re.IGNORECASE)
+    return p.sub(replace, string)
+
+@app.route('/search', methods=['POST'])
+def search():
+    """
+    TODO: retrieve keywords and return scored result list (also cache it)
+    """
+    args = dict(request.json)
+    sort = args.pop('sorted', True)
+    
+    result = bing_find.delay(**args).get(timeout=120)
+    
+    if sort:
+        result = sorted(result, key=lambda i: i['score'], reverse=True)
+    
+    keywords = [k[0] for k in args["keywords"]]
+    
+    html = ''
+    if not result is None:
+        for item in result:
+            desc = item['desc']
+            for keyw in keywords:
+                desc = icasereplace(desc, keyw, '<strong>%s</strong>' % keyw)
+                
+            html = html + '<div>'
+            html = html + '<div><a href="%s">%s</a></div>' % (item['url'],  
+                item['title'])
+            html = html + '<p>score: %s</p>' % item.get('score', 'n/a')
+            html = html + '<p>position: %s</p>' % item.get('pos', 'n/a')
+            html = html + '<p>%s</p>' % desc
+            html = html + '</div>'
+    return html
     
 @app.route('/fingerprint2', methods=['POST'])
 def fingerprint2(url=None):
@@ -98,7 +109,8 @@ def fingerprint2(url=None):
     
     hash_key = hashlib.sha1((
             args['query'] + str(args['preserve_entities']) 
-            + str(args['fetch_urls']) + str(args['corpus'])
+            + str(args['fetch_urls']) + str(args['corpus'] 
+            + str(args['analyse_pos']))
         ).encode('utf-8')).hexdigest()
     
     limit = args.pop('limit', 10)
