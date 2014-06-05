@@ -32,6 +32,7 @@ def bing_search(query, search_type="Web", top=50):
             
 class kw_dict(dict):
     def __init__(self, keywords):
+        keywords = list(keywords)
         if len(keywords):
             max_score = keywords[0][2]
             for keyword, tag, score in keywords:
@@ -48,6 +49,18 @@ def keywords_similarity(k1, k2):
     
     v1 = [kd1.score(w) for w in all_keywords]
     v2 = [kd2.score(w) for w in all_keywords]
+    
+    n1 = np.linalg.norm(v1)
+    n2 = np.linalg.norm(v2)
+    
+    return np.dot(v1, v2) / n1 / n2
+    
+def keywords_similarity2(k1, k2):
+    kd1 = kw_dict(k1)
+    kd2 = kw_dict(k2)
+    
+    v1 = [kd1.score(w) for w in kd1.keys()]
+    v2 = [kd2.score(w) for w in kd1.keys()]
     
     n1 = np.linalg.norm(v1)
     n2 = np.linalg.norm(v2)
@@ -89,9 +102,12 @@ def bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, 
             if not text is None:
                 kw = keywords_for_query(text, corpus=corpus, preserve_entities=preserve_entities, analyse_pos=analyse_pos, fetch_urls=False)
                 filtered = filter(Filter(reject_numbers, accepted_tags), kw)
-                filtered = list(islice(filtered, len(keywords)))
                 
-                result['score'] = keywords_similarity(keywords, filtered)
+                #filtered = list(islice(filtered, len(keywords)))
+                #result['score'] = keywords_similarity(keywords, filtered)
+                
+                result['score'] = keywords_similarity2(keywords, filtered)
+                
             else:
                 result['score'] = 0
         else:
