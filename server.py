@@ -18,7 +18,11 @@ def str_to_bool(string):
 @app.route('/')
 def index(url=None):
     return render_template('hello.html', url=url)
-    
+
+@app.route('/test')
+def test():
+    return render_template('test.html')
+
 def format_result(fp):
     html = ''
     for keyword, tag, score in fp:
@@ -146,5 +150,47 @@ def fingerprint2_json(url=None):
     fp = keywords_for_query.delay(**job).get(timeout=120)
     return format_result_json(fp)
 
+from flask import Response
+
+_status_count = 5
+
+@app.route("/fp", methods=['POST'])
+def fp_test():
+    global _status_count
+    req_id = 1
+    if _status_count == 0:
+        resp = Response("created", status=201, mimetype='text/plain',
+            headers={"Location": "/fp/%s" % req_id})
+    else:
+        resp = Response("accepted", status=202, mimetype='text/plain',
+            headers={"Location": "/status/%s" % req_id})
+    return resp
+    
+@app.route("/status/<req_id>", methods=['GET'])
+def fp_status(req_id):
+    global _status_count
+    if _status_count > 0:
+        json = jsonify(status="processing", message="processing %s -> %s ..." % (req_id, _status_count));
+        _status_count -= 1
+        return json
+    else:
+        return jsonify(status="done", url="/fp/%s" % req_id)
+    return resp
+    
+@app.route("/fp/<req_id>", methods=['GET', 'DELETE'])
+def fp_result(req_id):
+    global _status_count
+    
+    if _status_count != 0:
+        return Response("%s not found" % req_id, status=404, 
+            mimetype='text/plain')
+    
+    if request.method == 'GET':
+        return Response("result %s" % req_id, status=200, 
+            mimetype='text/plain')
+    elif request.method == 'DELETE':
+        _status_count = 5
+        return "done"
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True, threaded=True)
