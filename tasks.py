@@ -40,8 +40,8 @@ app = Celery('tasks', backend='redis://localhost',
 _dataspace = Dataspace("./reuters-tagged.hnn")
 _corpus = "reuters-tagged"
 
-#tagger = nltk.data.load(nltk.tag._POS_TAGGER)
-tagger = nltk.data.load("./models/treebank_brill_aubt/treebank_brill_aubt.pickle")
+tagger = nltk.data.load(nltk.tag._POS_TAGGER)
+#tagger = #nltk.data.load("./models/treebank_brill_aubt/treebank_brill_aubt.pickle")
 
 import time
 class Timer:
@@ -350,7 +350,6 @@ def keywords_for_query(
 
 from bing import bing_find as _bing_find
 
-#@print_args()
 @app.task
 def bing_find(
     keywords,

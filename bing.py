@@ -54,7 +54,11 @@ def keywords_similarity(k1, k2):
     n2 = np.linalg.norm(v2)
     
     return np.dot(v1, v2) / n1 / n2
-    
+
+"""
+Cosine Similarity and Euclidean Distance capture a lot of the same information. However whereas Euclidean Distance measures an actual distance between the two points of interest, Cosine can be thought of as measuring their apparent distance as viewed from the origin. Think of stars in the sky if you like analogies. The stars in Taurus are all relatively close together from our point of view. But in reality some of them are probably many times closer to us than others - the distance information has been effectively discarded (this is your normalization factor).
+"""
+
 def keywords_similarity2(k1, k2):
     kd1 = kw_dict(k1)
     kd2 = kw_dict(k2)
