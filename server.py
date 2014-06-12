@@ -90,6 +90,8 @@ def search():
     args = dict(request.json)
     sort = args.pop('sorted', True)
     
+    print("SEARCH ARGS: %s" % args)
+    
     hash_id = hash_args(args)
     result = keywords_cache.get(hash_id, None)
     if result is None:
@@ -130,6 +132,8 @@ def fingerprint2(url=None):
     limit = args.pop('limit', 10)
     accepted_tags = args.pop('accepted_tags', None)
     reject_numbers = args.pop('reject_numbers', True);
+    reject_punctuation = args.pop('reject_punctuation', True);
+    reject_stopwords = args.pop('reject_stopwords', True)
     
     # set to maximum limit
     args['limit'] = 500
@@ -138,8 +142,8 @@ def fingerprint2(url=None):
     if keywords is None:
         keywords = keywords_for_query.delay(**args).get(timeout=120)
         fingerprint_cache[hash_key] = keywords
-    
-    filtered = filter(Filter(reject_numbers, accepted_tags), keywords)
+        
+    filtered = filter(Filter(reject_numbers, accepted_tags, reject_stopwords, reject_punctuation), keywords)
     result = list(islice(filtered, limit))
     
     return format_result(result)

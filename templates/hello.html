@@ -108,7 +108,9 @@ button {background-color: #073642;color: #fdf6e3; border-radius: 2px; border: 1p
         <label class="checkbox"><input id="fetch_urls" checked="checked" type="checkbox" />follow urls</label>
     </div>
     <div id="opts_view">
-        <label style="margin-left: 100px" class="checkbox"><input id="reject_numbers" checked="checked" type="checkbox" />reject numbers</label>
+        <label style="margin-left: 100px" class="checkbox"><input id="reject_stopwords" checked="checked" type="checkbox" />reject stopwords</label>
+        <label class="checkbox"><input id="reject_punctuation" checked="checked" type="checkbox" />reject punctuation</label>
+        <label class="checkbox"><input id="reject_numbers" checked="checked" type="checkbox" />reject numbers</label>
         <label class="checkbox"><input id="filter_pos" checked="checked" type="checkbox" />filter pos</label>
         <label for="accepted_tags">| accepted tags:</label><input id="accepted_tags" style="margin-left: 10px; width: 130px" value="NE, NN, NNS, CD, JJ" type="text" />
     </div>
@@ -225,6 +227,8 @@ function keywords_for_text()
             fetch_urls: $('#fetch_urls').is(':checked'),
             query: $('#text').val(),
             reject_numbers: $('#reject_numbers').is(':checked'),
+            reject_stopwords: $('#reject_stopwords').is(':checked'),
+            reject_punctuation: $('#reject_punctuation').is(':checked'),
             accepted_tags: accepted_tags
         }),
         success: function(data) {
@@ -269,6 +273,8 @@ function doBingSearch()
             preserve_entities: $('#preserve_entities').is(':checked'),
             analyse_pos: $('#analyse_pos').is(':checked'),
             reject_numbers: $('#reject_numbers').is(':checked'),
+            reject_stopwords: $('#reject_stopwords').is(':checked'),
+            reject_punctuation: $('#reject_punctuation').is(':checked'),
             sorted: $('#sorted_similarity').is(':checked'),
             accepted_tags: accepted_tags
         }),

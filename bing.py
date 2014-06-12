@@ -79,7 +79,7 @@ def fetch_urls(urls):
     content = dict(content)
     return content
 
-def bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, accepted_tags, top=10, similarity_scores=True):
+def bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, accepted_tags, reject_stopwords, reject_punctuation, top=10, similarity_scores=True):
     query = '"' + '" "'.join(item[0] for item in keywords) + '"'
     search_results = bing_search(query, top=top)
     
@@ -101,7 +101,7 @@ def bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, 
             text = content[result['url']]
             if not text is None:
                 kw = keywords_for_query(text, corpus=corpus, preserve_entities=preserve_entities, analyse_pos=analyse_pos, fetch_urls=False)
-                filtered = filter(Filter(reject_numbers, accepted_tags), kw)
+                filtered = filter(Filter(reject_numbers, accepted_tags, reject_stopwords, reject_punctuation), kw)
                 
                 #filtered = list(islice(filtered, len(keywords)))
                 #result['score'] = keywords_similarity(keywords, filtered)

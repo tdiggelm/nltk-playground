@@ -73,10 +73,16 @@ def decode(page):
 
     return data
 
+stopwords_en = set(nltk.corpus.stopwords.words('english'))
+
+import string
 class Filter:    
-    def __init__(self, reject_numbers, accepted_tags):
+    def __init__(self, reject_numbers, accepted_tags, reject_stopwords, reject_punctuation):
         self.reject_numbers = reject_numbers
         self.accepted_tags = accepted_tags
+        self.reject_stopwords = reject_stopwords
+        self.reject_punctuation = reject_punctuation
+        print("Filter: reject_numbers=%s, accepted_tags=%s, reject_stopwords=%s, reject_punctuation=%s" % (reject_numbers, accepted_tags, reject_stopwords, reject_punctuation))
     
     def __call__(self, item):
         def isnumeric(s):
@@ -88,11 +94,15 @@ class Filter:
         
         word, tag, score = item
         
-        if isnumeric(word):
-            if self.reject_numbers:
-                return False
-            else:
-                return True
+        if (self.reject_punctuation 
+            and not re.match("^[\\w\\d]+[\\w\\d\\-._\\s]+$", word)):
+            return False
+        
+        if self.reject_numbers and isnumeric(word):
+            return False
+                
+        if self.reject_stopwords and word.lower() in stopwords_en:
+            return False
                
         if not self.accepted_tags is None and (
             tag != "N/A" and tag not in self.accepted_tags):
@@ -242,6 +252,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 
 #@print_args()
 @app.task
+@print_args()
 def keywords_for_query(
     query, 
     corpus="reuters-tagged",
@@ -289,8 +300,10 @@ def keywords_for_query(
     global _corpus
     global _dataspace
     if (_corpus != corpus):
-        if corpus in {"none", "reuters-tagged", "reuters-flat"}:
-            _dataspace = Dataspace("./%s.hnn" % _corpus)
+        if corpus in {"reuters-tagged", "reuters-flat"}:
+            _dataspace = Dataspace("./%s.hnn" % corpus)
+        elif corpus == "none":
+            _dataspace = Dataspace()
         else:
             raise ValueError("invalid corpus %s" % corpus)
         _corpus = corpus
@@ -337,16 +350,16 @@ def keywords_for_query(
 
 from bing import bing_find as _bing_find
 
+#@print_args()
 @app.task
-@print_args()
 def bing_find(
     keywords,
     corpus="reuters-tagged",
     preserve_entities=True,
     analyse_pos=True,
     accepted_tags={'NE', 'NN', 'NNS', 'CD', 'JJ'},
-    reject_numbers=True):
-    return list(_bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, accepted_tags))
+    reject_numbers=True, reject_stopwords=True, reject_punctuation=True):
+    return list(_bing_find(keywords, corpus, preserve_entities, analyse_pos, reject_numbers, accepted_tags, reject_stopwords, reject_punctuation))
         
 @app.task
 def keywords_from_text(text, 
