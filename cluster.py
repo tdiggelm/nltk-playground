@@ -25,16 +25,24 @@ def vector_from_url(url, all_words):
     keywords = get_keywords(url)
     return array([keywords.score(w) for w in all_words])
 
-urls = [
-    "www.ai-one.com",
-    "http://en.wikipedia.org/wiki/Albert_Einstein",
-    "http://en.wikipedia.org/wiki/USA",
-    "http://en.wikipedia.org/wiki/Microsoft"
-    ]
+def demo_2():
+    from nltk.corpus import brown
+    
+    categories = brown.categories()[:4]
+    
 
-keywords = [get_keywords(url) for url in urls]
-all_words = set(chain(*keywords))
-vectors = [vector_from_keywords(kw, all_words) for kw in keywords]
+def demo_1():
 
-clusterer = KMeansClusterer(2, euclidean_distance, repeats=10)
-clusters = clusterer.cluster(vectors, True)
+    urls = [
+        "www.ai-one.com",
+        "http://en.wikipedia.org/wiki/Albert_Einstein",
+        "http://en.wikipedia.org/wiki/USA",
+        "http://en.wikipedia.org/wiki/Microsoft"
+        ]
+
+    keywords = [get_keywords(url) for url in urls]
+    all_words = set(chain(*keywords))
+    vectors = [vector_from_keywords(kw, all_words) for kw in keywords]
+
+    clusterer = KMeansClusterer(2, euclidean_distance, repeats=10)
+    clusters = clusterer.cluster(vectors, True)
