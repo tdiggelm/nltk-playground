@@ -14,6 +14,7 @@ class Utf8Serializer:
 TODO:
 * add this to nathan-py
 * maybe check for dumps/loads functions on serializer when instanciating
+* make string serializer a class accepting an optional encoding parameter
 """
 
 class Dataspace:
