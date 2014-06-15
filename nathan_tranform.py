@@ -1,28 +1,21 @@
 from nathan.core import Dataspace as _Dataspace
 import pickle
 
-class Utf8Transformer:
-    def encode(self, quant):
-        return quant.encode('utf-8')
+class Utf8Serializer:
+    def dumps(self, string):
+        return string.encode('utf-8')
         
-    def decode(self, b):
+    def loads(self, b):
         return b.decode('utf-8')
-        
-class PickleTransformer:
-    def encode(self, quant):
-        return pickle.dumps(quant)
-        
-    def decode(self, b):
-        return pickle
 
 class Dataspace:
     
     def __init__(
         self,
         filename=None,
-        quant_tranformer=Utf8Transformer()):
+        serializer=Utf8Serializer()):
         
-        self.quant_transformer = quant_tranformer
+        self.serializer = serializer
         if filename is None:
             self.dataspace = _Dataspace(quants_as_bytes=True)
         else:
@@ -32,25 +25,24 @@ class Dataspace:
         
         if len(quants) == 0:
             raise ValueError("insert expects at least 1 quant")
-        
-        #if hasattr(quants[0], '__iter__'):
-        #    quants = quants[0]
             
-        quants = list(map(self.quant_transformer.encode, quants))
-        
-        print(quants)
-        
+        quants = list(map(self.serializer.dumps, quants))
+                
         return self.dataspace.insert(quants)
         
     def fetch(self, handle):
         
         quants = self.dataspace.fetch(handle)
         
-        return list(map(self.quant_transformer.decode, quants))
+        return list(map(self.serializer.loads, quants))
         
 if __name__ == "__main__":
     ds = Dataspace()
-    handle = ds.insert("hello", "world")
-    context = ds.fetch(handle)
+    h = ds.insert("hello", "world")
+    context = ds.fetch(h)
     print(context)
     
+    ds = Dataspace(serializer=pickle)
+    h = ds.insert("hello","world",123,True,2.3,("hello","world"),{"foo":"bar"})
+    context = ds.fetch(h)
+    print(context)
