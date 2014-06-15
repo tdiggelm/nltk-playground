@@ -1,20 +1,22 @@
 from nathan.core import Dataspace as _Dataspace
 import pickle
 
-class Utf8Serializer:
-    @classmethod
-    def dumps(cls, string):
-        return string.encode('utf-8')
+class StringSerializer:
+    def __init__(self, encoding='utf-8'):
+        self.encoding = encoding
     
-    @classmethod    
-    def loads(cls, b):
-        return b.decode('utf-8')
+    def dumps(self, string):
+        return string.encode(self.encoding)
+    
+    def loads(self, b):
+        return b.decode(self.encoding)
 
 """
 TODO:
 * add this to nathan-py
 * maybe check for dumps/loads functions on serializer when instanciating
-* make string serializer a class accepting an optional encoding parameter
+* implementation: maybe create _Dataspace C binding class and create python class Dataspace with StringSerializer, etc.
+* call python functions dumps/loads of serializer
 """
 
 class Dataspace:
@@ -22,7 +24,7 @@ class Dataspace:
     def __init__(
         self,
         filename=None,
-        serializer=Utf8Serializer):
+        serializer=StringSerializer('utf-8')):
         
         self.serializer = serializer
         if filename is None:
