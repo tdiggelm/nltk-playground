@@ -17,6 +17,7 @@ TODO:
 * maybe check for dumps/loads functions on serializer when instanciating
 * implementation: maybe create _Dataspace C binding class and create python class Dataspace with StringSerializer, etc.
 * call python functions dumps/loads of serializer
+* with dill pickler it is even possible to store functions, classes and objects as quants
 """
 
 class Dataspace:

@@ -3,6 +3,19 @@ from nltk.cluster import KMeansClusterer, euclidean_distance
 from tasks import keywords_for_query
 from itertools import chain
 
+"""
+Ideas for clustering:
+
+- special Dataspace
+- vocabulary_ dictionary containing all the words (keywords)
+    -> stop words filtered
+    -> limit amount of keywords
+    -> dict: {"term": index, ...} i.e. {'foo': 1, 'hello': 2, 'bar': 0, 'world': 3}
+- train (fit) function to prepare vocabulary_ list
+
+"""
+
+
 class kw_dict(dict):
     def __init__(self, keywords):
         keywords = list(keywords)
