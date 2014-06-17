@@ -185,6 +185,7 @@ TODO:
     NathanModel.corpus(tags=None) =>  returns NathanCorpus (w/ iterators etc.)
         => instead of TermTagMatrix
         => allows to search for matching documents / tags by terms, etc.
+        => why have Model and Copus to be different ???
 
 """
 
