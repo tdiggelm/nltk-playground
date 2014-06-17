@@ -41,6 +41,12 @@ TODO:
 
 - discuss: find generic way to handle different tag "class" (name, category, etc.)
 
+=> TODO:
+
+    - create FeatureVector class
+    
+    - create TermTagMatrix class
+
 """
 
 class TagNotFound(Exception):
