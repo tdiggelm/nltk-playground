@@ -1,15 +1,46 @@
 from nathan.core import Dataspace
 import scipy
-from scipy.sparse import lil_matrix, csr_matrix
+from scipy.sparse import lil_matrix, csr_matrix, vstack
 from numpy.linalg import norm
 from tasks import _fetch_url, _tokenize, Timer
 import string
 import nltk
 import re
+from itertools import chain
+import numpy as np
 from operator import itemgetter
 
 """
 - vocab: filter out unimportant words, stopwords, hard limit, etc.
+- reuters codes: http://ronaldo.cs.tcd.ie/esslli07/data/reuters21578-xml/cat-descriptions_120396.txt
+
+mtt = nv.term_tag_matrix()
+find similar tags for tag: nv.vec_to_tags(nv.vec_tag("orange")*mtt.T)[:10]
+find similar tags for term: nv.vec_to_tags(nv.vec_asso("orange")*mtt.T)[:10]
+find similar tags for url: nv.vec_to_tags(nv.vec_url("http://ai-one.com")*mtt.T)[:10]
+"""
+
+"""
+TODO:
+
+- add optional document name to train(self, sentences, name=None, tags=None)
+
+- add tag vocabulary
+
+- add document vocabulary
+
+- create update_model() function than updates term, tag and doc dictionaries
+
+- term_tag_matrix(self, tags=None) => return matrix class with methods for querying (e.g. similar_to_tag, similar_to_text, similar_to_sents, etc.) | if tags is specified, only those tags are used
+
+- term_document_matrix => as above but with documents
+
+- maintain weak-link to Vectorizer
+
+- variant: create additional Model/Repository class that combines vectors / term-xxx-matrices instead of doing it all in Vectorizer
+
+- discuss: find generic way to handle different tag "class" (name, category, etc.)
+
 """
 
 class TagNotFound(Exception):
@@ -104,8 +135,10 @@ class NathanVectorizer:
     def __init__(self, 
             filename=None, 
             term_filter=TermFilter(), 
-            term_transformer=TermTransformer()):
+            term_transformer=TermTransformer(),
+            norm=2):
         
+        self.norm = norm
         self.vocab = None
         self.term_transformer = term_transformer
         self.term_filter = term_filter
@@ -138,8 +171,15 @@ class NathanVectorizer:
         text = _fetch_url(url)
         self.train_text(text, tags)
         
-    def tags(self):
-        return (term[1:] for term in self.ds.complete("@") if len(term) > 1)
+    def tags(self, prefix=''):
+        return (term[1:] for term in self.ds.complete("@%s" % prefix) 
+            if len(term) > 1)
+            
+    def term_tag_matrix(self, tags=None):
+        if tags is None:
+            tags = self.tags()
+            
+        return vstack(self.vec_tag(tag) for tag in tags)
                     
     def update_vocab(self, vocabulary=None):
         if not vocabulary is None:
@@ -160,20 +200,35 @@ class NathanVectorizer:
         
         for term, vic, plau in analysis:
             if term in self.vocab:
-                vector[0, self.vocab[term]] = vic * plau
-            
-        vector = vector / norm(vector.A)
+                score = vic * plau
+                vector[0, self.vocab[term]] += score # update score
+        
+        if not self.norm is None:
+            n = np.sum(np.abs(vector.A[0])**self.norm,axis=-1)**(1./self.norm)
+            vector = vector / n
             
         return csr_matrix(vector)
-        
+    
+    def vec_to_tags(self, v, sort=True):
+        tags = list(self.tags())
+        v_tags = ((tags[i], val) for i, val in enumerate(v.A[0]))
+        if sort:
+            v_tags = sorted(v_tags, key=itemgetter(1), reverse=True)
+        return v_tags
+    
     def vec_to_terms(self, v, sort=True):
         v_terms = ((self.vocab.term(i), val) for i, val in enumerate(v.A[0]))
         if sort:
             v_terms = sorted(v_terms, key=itemgetter(1), reverse=True)
         return v_terms
         
-    def vec_asso(self, *terms):
-        asso = self.ds.associate(*terms, limit=0)
+    def vec_asso(self, *terms, how='any'):
+        if how == 'any': # calculate and combine assos for each search word
+            asso = chain(*(self.ds.associate(term, limit=0) for term in terms))
+        elif how == 'all': # all search words must be contained in assoc
+            asso = self.ds.associate(*terms, limit=0)
+        else:
+            raise ValueError('how must be either \'any\' or \'all\'')
         return self._vectorize(asso)
     
     def vec_url(self, url):
@@ -221,8 +276,28 @@ class NathanVectorizer:
         
         return vector
         
-def demo():
-    nv = NathanVectorizer()
-    nv.train_sents([['hello', 'world'], ['foo', 'bar']], tags=['test'])
+def import_reuters(nv):
+    from nltk.corpus import reuters
+    counter = 0
+    
+    fileids = reuters.fileids()
+    l = len(fileids)
+    for fileid in fileids:
+        counter += 1
+        print("importing file %s of %s..." % (counter, l))
+        nv.train_sents(reuters.sents(fileid), tags=reuters.categories(fileid))
     nv.update_vocab()
-    return nv.vec_tag('test')
+    
+def import_file(nv, filename):
+    counter = 0
+    with open(filename) as f:
+        for line in f:
+            if counter % 100 == 0:
+                print("importing line %s..." % counter)
+            counter += 1
+            line = line.strip()
+            if len(line) > 0:
+                nv.train_text(line)
+    nv.update_vocab()
+
+    

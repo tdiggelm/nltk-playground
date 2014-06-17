@@ -196,8 +196,8 @@ def _tokenize(text, preserve_entities=True, analyse_pos=True, ner_binary=True):
     
     tok = [sent for sent in tok if len(sent) > 0]
     
-    print("pos tagging took %ss" % time_pos)
-    print("chunking took %ss" % time_chunk)
+    #print("pos tagging took %ss" % time_pos)
+    #print("chunking took %ss" % time_chunk)
     
     return tok
 
