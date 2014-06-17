@@ -9,6 +9,7 @@ import re
 from itertools import chain
 import numpy as np
 from operator import itemgetter
+from itertools import islice
 
 """
 - vocab: filter out unimportant words, stopwords, hard limit, etc.
@@ -135,8 +136,59 @@ class TermTransformer:
             term = term.lower()
         
         return term
+        
+class FeatureVector:
+    def __init__(self, vector, vocab):
+        self.raw = vector
+        self.vocab = vocab
+    
+    def __len__(self):
+        return self.raw.shape[1]
+        
+    def __iter__(self):
+        return enumerate(self.raw.A[0])
+        
+    def features(self, sort=True, reverse=True):
+        v_terms = ((self.vocab.term(i), score) for i, score in self)
+        if sort:
+            v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
+        return v_terms
+        
+class NathanCorpus:    
+    def __init__(self, model, tags=None):
+        # tags => create model from certain tags or from all if None
+        # make model weakref, used for calling nathan functions
+        pass
+        
+    def __iter__(self):
+        """ return documents """
+        pass
+        
+    def match_tag(self, tag):
+        pass
+        
+    def match_terms(self, terms, how='any'):
+        pass
+        
+    def match_text(self, text):
+        pass
+        
+    def match_url(self, url):
+        pass
+    
+"""
 
-class NathanVectorizer:
+TODO:
+
+    Idea: rename NathanCorpus => NathanModel
+    
+    NathanModel.corpus(tags=None) =>  returns NathanCorpus (w/ iterators etc.)
+        => instead of TermTagMatrix
+        => allows to search for matching documents / tags by terms, etc.
+
+"""
+
+class NathanModel:
     
     def __init__(self, 
             filename=None, 
@@ -180,6 +232,9 @@ class NathanVectorizer:
     def tags(self, prefix=''):
         return (term[1:] for term in self.ds.complete("@%s" % prefix) 
             if len(term) > 1)
+    
+    def __iter__(self):
+        return (self.vec_tag(tag) for tag in self.tags())
             
     def term_tag_matrix(self, tags=None):
         if tags is None:
@@ -213,7 +268,7 @@ class NathanVectorizer:
             n = np.sum(np.abs(vector.A[0])**self.norm,axis=-1)**(1./self.norm)
             vector = vector / n
             
-        return csr_matrix(vector)
+        return FeatureVector(csr_matrix(vector), self.vocab)
     
     def vec_to_tags(self, v, sort=True):
         tags = list(self.tags())
@@ -221,12 +276,6 @@ class NathanVectorizer:
         if sort:
             v_tags = sorted(v_tags, key=itemgetter(1), reverse=True)
         return v_tags
-    
-    def vec_to_terms(self, v, sort=True):
-        v_terms = ((self.vocab.term(i), val) for i, val in enumerate(v.A[0]))
-        if sort:
-            v_terms = sorted(v_terms, key=itemgetter(1), reverse=True)
-        return v_terms
         
     def vec_asso(self, *terms, how='any'):
         if how == 'any': # calculate and combine assos for each search word
