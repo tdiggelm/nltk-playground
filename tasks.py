@@ -45,7 +45,7 @@ tagger = nltk.data.load(nltk.tag._POS_TAGGER)
 
 import time
 class Timer:
-    def __init__(self, description=""):
+    def __init__(self, description="n/a"):
         self.start = time.time()
         self.description = description
     

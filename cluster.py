@@ -15,6 +15,33 @@ Ideas for clustering:
 
 """
 
+class Vocabulary:
+    def __init__(self, ignore_case=True):
+        self.counter = 0
+        self.vocab = dict()
+        self.ignore_case = ignore_case
+        
+    def lookup(self, term):
+        if self.ignore_case:
+            term = term.lower()
+        index = self.vocab.get(term, None)
+        if index is None:
+            index = self.counter
+            self.vocab[term] = index
+            self.counter += 1
+        return index
+        
+    def items(self):
+        return self.vocab.items()
+        
+    def __len__(self):
+        return len(self.vocab)
+        
+    def __iter__(self):
+        return iter(self.vocab)
+        
+    def __getitem__(self, term):
+        return self.lookup(term)
 
 class kw_dict(dict):
     def __init__(self, keywords):
