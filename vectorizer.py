@@ -10,6 +10,8 @@ from itertools import chain
 import numpy as np
 from operator import itemgetter
 from itertools import islice
+from fnmatch import fnmatch
+    
 
 """
 - vocab: filter out unimportant words, stopwords, hard limit, etc.
@@ -77,6 +79,9 @@ class Vocabulary:
                 if index == i:
                     return term
             raise KeyError(index)
+            
+    def items(self):
+        return self.vocab.items()
             
     def __contains__(self, term):
         return term in self.vocab
@@ -154,27 +159,49 @@ class FeatureVector:
             v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
         return v_terms
         
-class NathanCorpus:    
-    def __init__(self, model, tags=None):
-        # tags => create model from certain tags or from all if None
-        # make model weakref, used for calling nathan functions
-        pass
+class NathanCorpus:
+    """
+    TODO: 
+    - return TagVector
+    - implement compare function to compare two corpora => yields comparison matrix
+    """
+    
+    def __init__(self, model, tags):
+        self.model = model
+        self.tags = Vocabulary(tags)   
+        #self.ttm = vstack(self.model.vec_tag(tag).raw for tag in self.tags)
+        self.ttm = lil_matrix((len(self.tags), len(self.model.vocab)))
+        for tag, index in self.tags.items():
+            self.ttm[index] = self.model.vec_tag(tag).raw
         
     def __iter__(self):
-        """ return documents """
-        pass
+        return (FeatureVector(v, self.model.vocab) for v in self.ttm)
+    
+    def __len__(self):
+        return len(self.tags)
+    
+    def documents(self):
+        return ((tag, FeatureVector(self.ttm[index], self.model.vocab)) 
+            for tag, index in self.tags.items())
+        
+    def _vec_to_tags(self, v, sort=True):
+        v_tags = ((self.tags.term(i), val) for i, val in enumerate(v.A[0]))
+        if sort:
+            v_tags = sorted(v_tags, key=itemgetter(1), reverse=True)
+        return v_tags
         
     def match_tag(self, tag):
-        pass
+        return self._vec_to_tags(self.model.vec_tag(tag).raw * self.ttm.T)
         
-    def match_terms(self, terms, how='any'):
-        pass
+    def match_terms(self, *terms, how='any'):
+        return self._vec_to_tags(
+            self.model.vec_asso(*terms, how=how).raw * self.ttm.T)
         
     def match_text(self, text):
-        pass
+        return self._vec_to_tags(self.model.vec_text(text).raw * self.ttm.T)
         
     def match_url(self, url):
-        pass
+        return self._vec_to_tags(self.model.vec_url(url).raw * self.ttm.T)
     
 """
 
@@ -229,19 +256,32 @@ class NathanModel:
     def train_url(self, url, tags=None):
         text = _fetch_url(url)
         self.train_text(text, tags)
+    
+    #def tags(self, prefix=None):
+    #    if prefix is None:
+    #        prefix = ''
+    #    tags = self.model.ds.complete("@%s" % tag_prefix)
+    #    return (quant[1:] for quant in tags if len(quant) > 1)
+    def tags(self, pattern=None):
         
-    def tags(self, prefix=''):
-        return (term[1:] for term in self.ds.complete("@%s" % prefix) 
-            if len(term) > 1)
+        def match_pattern(quant):
+            if pattern is None:
+                return True
+            else:
+                return fnmatch(quant[1:], pattern)
+            
+        tags = self.ds.complete("@")
+        return (quant[1:] for quant in tags 
+            if len(quant) > 1 
+            and match_pattern(quant))
+    
+    def corpus(self, tags=None):
+        if tags is None: # if no tags are specified take all
+            tags = self.tags()
+        return NathanCorpus(self, tags)
     
     def __iter__(self):
         return (self.vec_tag(tag) for tag in self.tags())
-            
-    def term_tag_matrix(self, tags=None):
-        if tags is None:
-            tags = self.tags()
-            
-        return vstack(self.vec_tag(tag) for tag in tags)
                     
     def update_vocab(self, vocabulary=None):
         if not vocabulary is None:
@@ -270,13 +310,6 @@ class NathanModel:
             vector = vector / n
             
         return FeatureVector(csr_matrix(vector), self.vocab)
-    
-    def vec_to_tags(self, v, sort=True):
-        tags = list(self.tags())
-        v_tags = ((tags[i], val) for i, val in enumerate(v.A[0]))
-        if sort:
-            v_tags = sorted(v_tags, key=itemgetter(1), reverse=True)
-        return v_tags
         
     def vec_asso(self, *terms, how='any'):
         if how == 'any': # calculate and combine assos for each search word
@@ -341,7 +374,9 @@ def import_reuters(nv):
     for fileid in fileids:
         counter += 1
         print("importing file %s of %s..." % (counter, l))
-        nv.train_sents(reuters.sents(fileid), tags=reuters.categories(fileid))
+        tags = (["doc:%s" % fileid] 
+            + ["cat:%s" % category for category in reuters.categories(fileid)])
+        nv.train_sents(reuters.sents(fileid), tags=tags)
     nv.update_vocab()
     
 def import_file(nv, filename):
