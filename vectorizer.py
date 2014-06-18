@@ -158,6 +158,12 @@ class FeatureVector:
         if sort:
             v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
         return v_terms
+      
+"""
+TODO:
+    - corpus: does not offer match functionality, for this make different class (matcher) which takes a corpus as argument (corpus only returns document vectors), does NOT create matrix! lazy loading of vectors
+    - matcher: different implementations (simplest one in-memory)
+"""
         
 class NathanCorpus:
     """
@@ -203,18 +209,6 @@ class NathanCorpus:
     def match_url(self, url):
         return self._vec_to_tags(self.model.vec_url(url).raw * self.ttm.T)
     
-"""
-
-TODO:
-
-    Idea: rename NathanCorpus => NathanModel
-    
-    NathanModel.corpus(tags=None) =>  returns NathanCorpus (w/ iterators etc.)
-        => instead of TermTagMatrix
-        => allows to search for matching documents / tags by terms, etc.
-        => why have Model and Copus to be different ???
-
-"""
 
 class NathanModel:
     
@@ -391,4 +385,13 @@ def import_file(nv, filename):
                 nv.train_text(line)
     nv.update_vocab()
 
-    
+"""
+LSI testing:
+
+from gensim import corpora, models, similarities
+lsi = models.LsiModel(c)
+index = similarities.MatrixSimilarity(lsi[corpus])
+vec_lsi = lsi[model.vec_asso("oil")]
+sims = index[vec_lsi]
+[(c.tags.term(index), score) for index,score in sorted(list(enumerate(sims)), key=lambda i: i[1], reverse=True)[:20]]
+"""
