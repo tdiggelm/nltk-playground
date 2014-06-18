@@ -250,6 +250,9 @@ class NathanModel:
         
     def __len__(self):
         return len(self.vocab)
+        
+    def __contains__(self, term):
+        return term in self.vocab
                     
     def update_model(self, vocabulary=None):
         if not vocabulary is None:
@@ -280,12 +283,16 @@ class NathanModel:
         return FeatureVector(csr_matrix(vector), self.vocab)
     
     """
-    TODO: check if term is in vocabulary, also apply input transformation to term, also do this for vectorize terms!
+    TODO: check if term is in vocabulary, also apply input transformation to term, also do this for vectorize asso!
     """
     
     def similar(self, term, use_vocab=True, limit=0):
+        if not self.term_transformer is None:
+            term = self.term_transformer(term)
         it = iter(self.ds.similar_to(term))
-        it = filter(lambda term: term[0] != '@', it)
+        it = filter(lambda item: len(item[0]) > 0 and item[0][0] != '@', it)
+        if use_vocab:
+            it = filter(lambda item: item[0] in self.vocab, it)
         if limit > 0:
             it = islice(it, limit)
         
@@ -296,6 +303,9 @@ class NathanModel:
             yield (term, score/max_score)
 
     def vectorize_terms(self, *terms, how='any', associate_reverse=False):
+        if not self.term_transformer is None:
+            terms = (self.term_transformer(term) for term in terms)
+            
         if associate_reverse:
             asso = self.ds.associate_reverse(*terms, limit=0)
         elif how == 'any': # calculate and combine assos for each search word
