@@ -254,7 +254,7 @@ class NathanModel:
         return self.vocab[key]
     
     def __iter__(self):
-        return iter(self.vocab.items())
+        return iter(self.vocab)
         
     def __len__(self):
         return len(self.vocab)
