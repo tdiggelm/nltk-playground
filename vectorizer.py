@@ -54,43 +54,33 @@ TODO:
 
 class TagNotFound(Exception):
     pass
-
+    
 class Vocabulary:
     def __init__(self, terms, fast_revlookup=True):
         self.counter = 0
-        self.vocab = {}
+        self.vocab = []
         self.vocab_rev = {} if fast_revlookup else None
         for term in terms:
             self._insert(term)
     
     def _insert(self, term):
-        self.vocab[term] = self.counter
-        self.vocab_rev[self.counter] = term
+        self.vocab.append(term)
+        self.vocab_rev[term] = self.counter
         self.counter += 1
-        
-    def index(self, term):
-        return self.vocab[term]
-    
-    def term(self, index):
-        if not self.vocab_rev is None:
-            return self.vocab_rev[index]
-        else:
-            for term, i in self.vocab.items():
-                if index == i:
-                    return term
-            raise KeyError(index)
-            
-    def items(self):
-        return self.vocab.items()
             
     def __contains__(self, term):
-        return term in self.vocab
+        return term in self.vocab_rev
         
     def __iter__(self):
         return iter(self.vocab)
         
-    def __getitem__(self, term):
-        return self.index(term)
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return self.vocab_rev[key]
+        elif isinstance(key, int):
+            return self.vocab[key]
+        else:
+            raise TypeError("key must be str or int")
             
     def __len__(self):
         return len(self.vocab)
@@ -145,73 +135,53 @@ class TermTransformer:
 class FeatureVector:
     def __init__(self, vector, vocab):
         self.raw = vector
-        self.vocab = vocab
     
     def __len__(self):
         return self.raw.shape[1]
         
     def __iter__(self):
         return enumerate(self.raw.A[0])
-        
-    def features(self, sort=True, reverse=True):
-        v_terms = ((self.vocab.term(i), score) for i, score in self)
-        if sort:
-            v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
-        return v_terms
-      
-"""
-TODO:
-    - corpus: does not offer match functionality, for this make different class (matcher) which takes a corpus as argument (corpus only returns document vectors), does NOT create matrix! lazy loading of vectors
-    - matcher: different implementations (simplest one in-memory)
-"""
-        
-class NathanCorpus:
-    """
-    TODO: 
-    - return TagVector
-    - implement compare function to compare two corpora => yields comparison matrix
-    """
+
+class SimilarityMatrix:    
+    def __init__(self, corpus):
+        self.corpus = corpus
+        self.ttm = lil_matrix((len(self.corpus), len(self.corpus.model)))
+        for index, vector in enumerate(self.corpus):
+            self.ttm[index] = vector.raw
     
-    def __init__(self, model, tags):
+    def match(self, vector):
+        return (vector.raw * self.ttm.T).A[0]
+        
+    def __getitem__(self, vector):
+        return self.match(vector)
+        
+class NathanCorpus:    
+    def __init__(self, model, tags=None):
         self.model = model
-        self.tags = Vocabulary(tags)   
-        #self.ttm = vstack(self.model.vec_tag(tag).raw for tag in self.tags)
-        self.ttm = lil_matrix((len(self.tags), len(self.model.vocab)))
-        for tag, index in self.tags.items():
-            self.ttm[index] = self.model.vec_tag(tag).raw
+        
+        if tags is None: # if no tags are specified take all
+            tags = self.model.tags()
+        elif isinstance(tags, str): # if is string use as pattern
+            tags = self.model.tags(tags)
+            
+        self.tags = Vocabulary(tags)
+    
+    def translate(self, sims, sort=True, reverse=True):
+        v_tags = ((self.tags[i], val) for i, val in enumerate(sims))
+        if sort:
+            v_tags = sorted(v_tags, key=itemgetter(1), reverse=reverse)
+        return v_tags
+    
+    def __getitem__(self, key):
+        return self.tags[key]
         
     def __iter__(self):
-        return (FeatureVector(v, self.model.vocab) for v in self.ttm)
-    
+        return (self.model.vectorize_tag(tag) for tag in self.tags)
+        
     def __len__(self):
         return len(self.tags)
     
-    def documents(self):
-        return ((tag, FeatureVector(self.ttm[index], self.model.vocab)) 
-            for tag, index in self.tags.items())
-        
-    def _vec_to_tags(self, v, sort=True):
-        v_tags = ((self.tags.term(i), val) for i, val in enumerate(v.A[0]))
-        if sort:
-            v_tags = sorted(v_tags, key=itemgetter(1), reverse=True)
-        return v_tags
-        
-    def match_tag(self, tag):
-        return self._vec_to_tags(self.model.vec_tag(tag).raw * self.ttm.T)
-        
-    def match_terms(self, *terms, how='any'):
-        return self._vec_to_tags(
-            self.model.vec_asso(*terms, how=how).raw * self.ttm.T)
-        
-    def match_text(self, text):
-        return self._vec_to_tags(self.model.vec_text(text).raw * self.ttm.T)
-        
-    def match_url(self, url):
-        return self._vec_to_tags(self.model.vec_url(url).raw * self.ttm.T)
-    
-
 class NathanModel:
-    
     def __init__(self, 
             filename=None, 
             term_filter=TermFilter(), 
@@ -225,7 +195,7 @@ class NathanModel:
         
         if not filename is None:
             self.ds = Dataspace(filename)
-            self.update_vocab()
+            self.update_model()
         else:
             self.ds = Dataspace()
             
@@ -250,14 +220,14 @@ class NathanModel:
     def train_url(self, url, tags=None):
         text = _fetch_url(url)
         self.train_text(text, tags)
-    
-    #def tags(self, prefix=None):
-    #    if prefix is None:
-    #        prefix = ''
-    #    tags = self.model.ds.complete("@%s" % tag_prefix)
-    #    return (quant[1:] for quant in tags if len(quant) > 1)
-    def tags(self, pattern=None):
         
+    def translate(self, features, sort=True, reverse=True):
+        v_terms = ((self.vocab[index], score) for index, score in features)
+        if sort:
+            v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
+        return v_terms
+    
+    def tags(self, pattern=None):
         def match_pattern(quant):
             if pattern is None:
                 return True
@@ -270,14 +240,18 @@ class NathanModel:
             and match_pattern(quant))
     
     def corpus(self, tags=None):
-        if tags is None: # if no tags are specified take all
-            tags = self.tags()
         return NathanCorpus(self, tags)
+        
+    def __getitem__(self, key):
+        return self.vocab[key]
     
     def __iter__(self):
-        return (self.vec_tag(tag) for tag in self.tags())
+        return iter(self.vocab.items())
+        
+    def __len__(self):
+        return len(self.vocab)
                     
-    def update_vocab(self, vocabulary=None):
+    def update_model(self, vocabulary=None):
         if not vocabulary is None:
             self.vocab = vocabulary
         else:
@@ -290,7 +264,7 @@ class NathanModel:
     def _vectorize(self, analysis):
         if self.vocab is None:
             raise ValueError('vocabulary not initialized'
-                ' - run update_vocab() first')
+                ' - run update_model() first')
             
         vector = lil_matrix((1, len(self.vocab)), dtype=scipy.float64)
         
@@ -304,9 +278,27 @@ class NathanModel:
             vector = vector / n
             
         return FeatureVector(csr_matrix(vector), self.vocab)
+    
+    """
+    TODO: check if term is in vocabulary, also apply input transformation to term, also do this for vectorize terms!
+    """
+    
+    def similar(self, term, use_vocab=True, limit=0):
+        it = iter(self.ds.similar_to(term))
+        it = filter(lambda term: term[0] != '@', it)
+        if limit > 0:
+            it = islice(it, limit)
         
-    def vec_asso(self, *terms, how='any'):
-        if how == 'any': # calculate and combine assos for each search word
+        term, max_score = next(it)
+        yield (term, 1.0)
+        
+        for term, score in it:
+            yield (term, score/max_score)
+
+    def vectorize_terms(self, *terms, how='any', associate_reverse=False):
+        if associate_reverse:
+            asso = self.ds.associate_reverse(*terms, limit=0)
+        elif how == 'any': # calculate and combine assos for each search word
             asso = chain(*(self.ds.associate(term, limit=0) for term in terms))
         elif how == 'all': # all search words must be contained in assoc
             asso = self.ds.associate(*terms, limit=0)
@@ -314,27 +306,27 @@ class NathanModel:
             raise ValueError('how must be either \'any\' or \'all\'')
         return self._vectorize(asso)
     
-    def vec_url(self, url):
+    def vectorize_url(self, url):
         tmr = Timer("fetch url")
         text = _fetch_url(url)
         tmr.stop()
         
-        return self.vec_text(text)
+        return self.vectorize_text(text)
     
-    def vec_text(self, text):
+    def vectorize_text(self, text):
         tmr = Timer("tokenize text")
         sents = _tokenize(text, False, False)
         tmr.stop()
-        return self.vec_sents(sents)
+        return self.vectorize_sents(sents)
     
-    def vec_tag(self, tag):
+    def vectorize_tag(self, tag):
         handle = self.ds.select('@%s' % tag)
         if handle is None:
             raise TagNotFound(tag)
         keywords = self.ds.keywords_of(handle, limit=0)
         return self._vectorize(keywords)
         
-    def vec_sents(self, sentences):
+    def vectorize_sents(self, sentences):
         tmr = Timer("import temp text")
         doc_h = self.ds.insert('#temp')
         for sent in sentences:
@@ -370,8 +362,8 @@ def import_reuters(nv):
         print("importing file %s of %s..." % (counter, l))
         tags = (["doc:%s" % fileid] 
             + ["cat:%s" % category for category in reuters.categories(fileid)])
-        nv.train_sents(reuters.sents(fileid), tags=tags)
-    nv.update_vocab()
+        nv.train_sents(reuters.vectorize_sents(fileid), tags=tags)
+    nv.update_model()
     
 def import_file(nv, filename):
     counter = 0
@@ -383,15 +375,13 @@ def import_file(nv, filename):
             line = line.strip()
             if len(line) > 0:
                 nv.train_text(line)
-    nv.update_vocab()
+    nv.update_model()
 
 """
 LSI testing:
 
 from gensim import corpora, models, similarities
-lsi = models.LsiModel(c)
+lsi = models.LsiModel(corpus)
 index = similarities.MatrixSimilarity(lsi[corpus])
-vec_lsi = lsi[model.vec_asso("oil")]
-sims = index[vec_lsi]
-[(c.tags.term(index), score) for index,score in sorted(list(enumerate(sims)), key=lambda i: i[1], reverse=True)[:20]]
+corpus.translate(index[lsi[vectorizer.vectorize_terms("oil")]])[:10]
 """
