@@ -149,11 +149,19 @@ class SimilarityMatrix:
         for index, vector in enumerate(self.corpus):
             self.ttm[index] = vector.raw
     
-    def match(self, vector):
-        return (vector.raw * self.ttm.T).A[0]
+    def get_similarities(self, query):
+        if isinstance(query, FeatureVector):
+            return (query.raw * self.ttm.T).A[0]
+        elif isinstance(query, SimilarityMatrix):
+            return (query.ttm * self.ttm.T).A
+        else:
+            raise TypeError("query must be FeatureVector or SimilarityMatrix")
+    
+    def __getitem__(self, query):
+        return self.get_similarities(query)
         
-    def __getitem__(self, vector):
-        return self.match(vector)
+    def __iter__(self):
+        return ((v * self.ttm.T).A[0] for v in self.ttm)
         
 class NathanCorpus:    
     def __init__(self, model, tags=None):
