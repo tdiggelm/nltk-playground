@@ -15,7 +15,7 @@ from fnmatch import fnmatch
 """
 TODO:
     
-    - discuss renaming vectorize_xxx commands to associate, keywords_for_url, ..
+    - discuss renaming transform_xxx commands to associate, keywords_for_url, ..
     - discuss removing url handling, text tokenizing from class, do that septly
     - train a model with only training data from nltk then use test data for vfy
     - maybe create SimilarityVector class (has function similarities => transla)
@@ -162,7 +162,7 @@ class NathanCorpus:
         return self.tags[key]
         
     def __iter__(self):
-        return (self.model.vectorize_tag(tag) for tag in self.tags)
+        return (self.model.transform_tag(tag) for tag in self.tags)
         
     def __len__(self):
         return len(self.tags)
@@ -288,7 +288,7 @@ class NathanModel:
         for term, score in it:
             yield (term, score/max_score)
 
-    def vectorize_terms(self, *terms, how='any', associate_reverse=False):
+    def transform_terms(self, *terms, how='any', associate_reverse=False):
         if not self.term_transformer is None:
             terms = (self.term_transformer(term) for term in terms)
             
@@ -302,27 +302,27 @@ class NathanModel:
             raise ValueError('how must be either \'any\' or \'all\'')
         return self._vectorize(asso)
     
-    def vectorize_url(self, url):
+    def transform_url(self, url):
         #tmr = Timer("fetch url")
         text = _fetch_url(url)
         #tmr.stop()
         
-        return self.vectorize_text(text)
+        return self.transform_text(text)
     
-    def vectorize_text(self, text):
+    def transform_text(self, text):
         #tmr = Timer("tokenize text")
         sents = _tokenize(text, False, False)
         #tmr.stop()
-        return self.vectorize_sents(sents)
+        return self.transform_sents(sents)
     
-    def vectorize_tag(self, tag):
+    def transform_tag(self, tag):
         handle = self.ds.select('@%s' % tag)
         if handle is None:
             raise TagNotFound(tag)
         keywords = self.ds.keywords_of(handle, limit=0)
         return self._vectorize(keywords)
         
-    def vectorize_sents(self, sentences):
+    def transform_sents(self, sentences):
         #tmr = Timer("import temp text")
         doc_h = self.ds.insert('#temp')
         for sent in sentences:
@@ -393,7 +393,7 @@ LSI testing:
 from gensim import corpora, models, similarities
 lsi = models.LsiModel(corpus)
 sim_lsi = similarities.MatrixSimilarity(lsi[corpus])
-corpus.translate(sim_lsi[lsi[vectorizer.vectorize_terms("oil")]])[:10]
+corpus.translate(sim_lsi[lsi[vectorizer.transform_terms("oil")]])[:10]
 """
 
 """
@@ -427,9 +427,9 @@ corpus = model.corpus("doc:test*")
 
 sim = corpus.similarity_matrix() # this takes some time
 
-[(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.vectorize_term("gold")])][:10]
+[(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.transform_term("gold")])][:10]
 
-[(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.vectorize_tag("doc:test/19802")])][:10]
+[(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.transform_tag("doc:test/19802")])][:10]
 
 """
 
@@ -452,7 +452,7 @@ def test_acc(sim, fileid):
     def accuracy(m, p):
         return sum(1 if m_i in p else 0 for m_i in m)/len(m)
     m=reuters.categories(fileid); 
-    simr = sim[model.vectorize_sents(reuters.sents(fileid))]
+    simr = sim[model.transform_sents(reuters.sents(fileid))]
     simr = corpus.translate_similarities(simr)
     p=[cat[4:] for cat, score in simr[:len(m)]]
     return accuracy(m, p)
