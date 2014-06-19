@@ -21,6 +21,7 @@ TODO:
     - maybe create SimilarityVector class (has function similarities => transla)
     - maybe add features() function to FeatureVector
     - make it possible to store/load SimilarityMatrix
+    - implement logger (see gensim as example)
 
 """
 
@@ -302,16 +303,16 @@ class NathanModel:
         return self._vectorize(asso)
     
     def vectorize_url(self, url):
-        tmr = Timer("fetch url")
+        #tmr = Timer("fetch url")
         text = _fetch_url(url)
-        tmr.stop()
+        #tmr.stop()
         
         return self.vectorize_text(text)
     
     def vectorize_text(self, text):
-        tmr = Timer("tokenize text")
+        #tmr = Timer("tokenize text")
         sents = _tokenize(text, False, False)
-        tmr.stop()
+        #tmr.stop()
         return self.vectorize_sents(sents)
     
     def vectorize_tag(self, tag):
@@ -322,27 +323,27 @@ class NathanModel:
         return self._vectorize(keywords)
         
     def vectorize_sents(self, sentences):
-        tmr = Timer("import temp text")
+        #tmr = Timer("import temp text")
         doc_h = self.ds.insert('#temp')
         for sent in sentences:
             if not self.term_transformer is None:
                 sent = (self.term_transformer(term) for term in sent)
             sen_h = self.ds.insert(sent)
             self.ds.link(doc_h, sen_h)
-        tmr.stop()
+        #tmr.stop()
         
-        tmr = Timer("vectorize keywords")
+        #tmr = Timer("vectorize keywords")
         keywords = self.ds.keywords_of(doc_h, limit=0)
         vector = self._vectorize(keywords)
-        tmr.stop()
+        #tmr.stop()
         
-        tmr = Timer("delete temp text")
+        #tmr = Timer("delete temp text")
         for child_h in self.ds.children_of(doc_h):
             self.ds.unlink(doc_h, child_h)
             if len(self.ds.parents_of(child_h)) == 0:
                 self.ds.erase(child_h)
         self.ds.erase(doc_h)
-        tmr.stop()
+        #tmr.stop()
         
         return vector
         
