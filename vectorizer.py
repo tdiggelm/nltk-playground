@@ -132,26 +132,26 @@ class TermTransformer:
         
         return term
         
-class FeatureVector:
-    def __init__(self, vector, vocab):
-        self.raw = vector
-    
+class FeatureVector(lil_matrix):
     def __len__(self):
-        return self.raw.shape[1]
+        return self.shape[1]
         
     def __iter__(self):
-        return enumerate(self.raw.A[0])
+        return enumerate(self.A[0])
+    
+    def __repr__(self):
+        return "FeatureVector(%s)" % repr(self.A[0])
 
 class SimilarityMatrix:    
     def __init__(self, corpus):
         self.corpus = corpus
         self.ttm = lil_matrix((len(self.corpus), len(self.corpus.model)))
         for index, vector in enumerate(self.corpus):
-            self.ttm[index] = vector.raw
+            self.ttm[index] = vector
     
     def get_similarities(self, query):
         if isinstance(query, FeatureVector):
-            return (query.raw * self.ttm.T).A[0]
+            return (query * self.ttm.T).A[0]
         elif isinstance(query, SimilarityMatrix):
             return (query.ttm * self.ttm.T).A
         else:
@@ -277,7 +277,7 @@ class NathanModel:
             raise ValueError('vocabulary not initialized'
                 ' - run update_model() first')
             
-        vector = lil_matrix((1, len(self.vocab)), dtype=scipy.float64)
+        vector = FeatureVector((1, len(self.vocab)), dtype=scipy.float64)
         
         for term, vic, plau in analysis:
             if term in self.vocab:
@@ -286,9 +286,9 @@ class NathanModel:
         
         if not self.norm is None:
             n = np.sum(np.abs(vector.A[0])**self.norm,axis=-1)**(1./self.norm)
-            vector = vector / n
+            vector = FeatureVector(vector / n)
             
-        return FeatureVector(csr_matrix(vector), self.vocab)
+        return vector
     
     """
     TODO: check if term is in vocabulary, also apply input transformation to term, also do this for vectorize asso!
@@ -402,4 +402,24 @@ from gensim import corpora, models, similarities
 lsi = models.LsiModel(corpus)
 index = similarities.MatrixSimilarity(lsi[corpus])
 corpus.translate(index[lsi[vectorizer.vectorize_terms("oil")]])[:10]
+"""
+
+"""
+KMeans clustering:
+
+# from each category select 10 files tops
+tags = [("doc:%s" % f for f in chain(*(islice(reuters.fileids(cat), 10) for cat in reuters.categories())))]
+
+# get corpus
+corpus = model.corpus(tags)
+
+# get similarity matrix
+sim = SimilarityMatrix(corpus)
+
+# create KMeans clusterer
+from sklearn.cluster import KMeans
+km = KMeans(90)
+
+# show files, categories, prediction
+clusters = [(corpus_files[index], reuters.categories(corpus_files[index][4:]),  cluster) for index, cluster in enumerate(km.fit_predict(sim.ttm))]
 """
