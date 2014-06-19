@@ -11,44 +11,16 @@ import numpy as np
 from operator import itemgetter
 from itertools import islice
 from fnmatch import fnmatch
-    
-
-"""
-- vocab: filter out unimportant words, stopwords, hard limit, etc.
-- reuters codes: http://ronaldo.cs.tcd.ie/esslli07/data/reuters21578-xml/cat-descriptions_120396.txt
-
-mtt = nv.term_tag_matrix()
-find similar tags for tag: nv.vec_to_tags(nv.vec_tag("orange")*mtt.T)[:10]
-find similar tags for term: nv.vec_to_tags(nv.vec_asso("orange")*mtt.T)[:10]
-find similar tags for url: nv.vec_to_tags(nv.vec_url("http://ai-one.com")*mtt.T)[:10]
-"""
 
 """
 TODO:
-
-- add optional document name to train(self, sentences, name=None, tags=None)
-
-- add tag vocabulary
-
-- add document vocabulary
-
-- create update_model() function than updates term, tag and doc dictionaries
-
-- term_tag_matrix(self, tags=None) => return matrix class with methods for querying (e.g. similar_to_tag, similar_to_text, similar_to_sents, etc.) | if tags is specified, only those tags are used
-
-- term_document_matrix => as above but with documents
-
-- maintain weak-link to Vectorizer
-
-- variant: create additional Model/Repository class that combines vectors / term-xxx-matrices instead of doing it all in Vectorizer
-
-- discuss: find generic way to handle different tag "class" (name, category, etc.)
-
-=> TODO:
-
-    - create FeatureVector class
     
-    - create TermTagMatrix class
+    - discuss renaming vectorize_xxx commands to associate, keywords_for_url, ..
+    - discuss removing url handling, text tokenizing from class, do that septly
+    - train a model with only training data from nltk then use test data for vfy
+    - maybe create SimilarityVector class (has function similarities => transla)
+    - maybe add features() function to FeatureVector
+    - make it possible to store/load SimilarityMatrix
 
 """
 
