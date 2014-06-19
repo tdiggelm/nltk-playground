@@ -14,18 +14,12 @@ from fnmatch import fnmatch
 
 """
 TODO:
-    - implement translate() function in Vocabulary
-        => implement FeatureVector.translate => model.vocab.translate
-        => implement SimilarityVector.translate => corpus.tags.translate
     - document classes
     - merge with nathan-py
     - check compatibility with sklearn
     - test against tf-idf term tag model
-    - discuss renaming transform_xxx commands to associate, keywords_for_url, ..
     - discuss removing url handling, text tokenizing from class, do that septly
     - train a model with only training data from nltk then use test data for vfy
-    - maybe create SimilarityVector class (has function similarities => transla)
-    - maybe add features() function to FeatureVector
     - make it possible to store/load SimilarityMatrix
     - implement logger (see gensim as example)
 
@@ -118,17 +112,29 @@ class TermTransformer:
         return term
         
 class FeatureVector(lil_matrix):
+    def __init__(self, S, vocab):
+        lil_matrix.__init__(self, S)
+        self.vocab_ = vocab
+        
     def __len__(self):
         return self.shape[1]
         
     def __iter__(self):
         return enumerate(self.A[0])
+        
+    def translate(self, sort=True, reverse=True):
+        return self.vocab_.translate(self, sort, reverse)
     
     def __repr__(self):
         return "FeatureVector(%s)" % repr(self.A[0])
+        
+class SimilarityVector(FeatureVector):
+    def __repr__(self):
+        return "SimilarityVector(%s)" % repr(self.A[0])
 
 class SimilarityMatrix(lil_matrix):    
     def __init__(self, corpus):
+        self.corpus_ = corpus
         lil_matrix.__init__(self, (len(corpus), len(corpus.model)))
         for index, vector in enumerate(corpus):
             if index % 10 == 0:
@@ -138,14 +144,15 @@ class SimilarityMatrix(lil_matrix):
     
     def __getitem__(self, key):
         if isinstance(key, FeatureVector):
-            return (key * self.T).A[0]
+            return SimilarityVector(key * self.T, self.corpus_.tags)
         elif isinstance(key, SimilarityMatrix):
             return (key * self.T).A
         else:
             return lil_matrix.__getitem__(self, key)
         
     def __iter__(self):
-        return ((v * self.T).A[0] for v in lil_matrix.__iter__(self))
+        return (SimilarityVector(v * self.T, self.corpus_.tags) 
+            for v in lil_matrix.__iter__(self))
         
     def __repr__(self):
         return "SimilarityMatrix(%s)" % repr(self.A)
@@ -162,10 +169,7 @@ class NathanCorpus:
         self.tags = Vocabulary(tags)
     
     def translate_similarities(self, sims, sort=True, reverse=True):
-        v_tags = ((self.tags[i], val) for i, val in enumerate(sims))
-        if sort:
-            v_tags = sorted(v_tags, key=itemgetter(1), reverse=reverse)
-        return v_tags
+        return self.tags.translate(sims, sort, reverse)
         
     def similarity_matrix(self):
         return SimilarityMatrix(self)
@@ -220,10 +224,7 @@ class NathanModel:
         self.train_text(text, tags)
         
     def translate_features(self, features, sort=True, reverse=True):
-        v_terms = ((self.vocab[index], score) for index, score in features)
-        if sort:
-            v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
-        return v_terms
+        return self.vocab.translate(features, sort, reverse)
     
     def tags(self, pattern=None):
         def match_pattern(quant):
@@ -267,7 +268,7 @@ class NathanModel:
             raise ValueError('vocabulary not initialized'
                 ' - run update_model() first')
             
-        vector = FeatureVector((1, len(self.vocab)), dtype=scipy.float64)
+        vector = lil_matrix((1, len(self.vocab)), dtype=scipy.float64)
         
         for term, vic, plau in analysis:
             if term in self.vocab:
@@ -276,9 +277,9 @@ class NathanModel:
         
         if not self.norm is None:
             n = np.sum(np.abs(vector.A[0])**self.norm,axis=-1)**(1./self.norm)
-            vector = FeatureVector(vector / n)
+            vector = vector / n
             
-        return vector
+        return FeatureVector(vector, self.vocab)
     
     """
     TODO: check if term is in vocabulary, also apply input transformation to term, also do this for vectorize asso!
