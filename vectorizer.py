@@ -428,3 +428,20 @@ km = KMeans(90)
 # show files, categories, prediction
 clusters = [(corpus_files[index], reuters.categories(corpus_files[index][4:]),  cluster) for index, cluster in enumerate(km.fit_predict(sim.ttm))]
 """
+
+"""
+### Find similar documents for document / search terms
+
+from vectorizer import *
+
+model = NathanModel("./reuters-cf.hnn")
+
+corpus = model.corpus("doc:test*")
+
+sim = corpus.similarity_matrix() # this takes some time
+
+[(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.vectorize_term("gold")])][:10]
+
+[(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.vectorize_tag("doc:test/19802")])][:10]
+
+"""
