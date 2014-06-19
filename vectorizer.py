@@ -15,6 +15,10 @@ from fnmatch import fnmatch
 """
 TODO:
     
+    - document classes
+    - merge with nathan-py
+    - check compatibility with sklearn
+    - test against tf-idf term tag model
     - discuss renaming transform_xxx commands to associate, keywords_for_url, ..
     - discuss removing url handling, text tokenizing from class, do that septly
     - train a model with only training data from nltk then use test data for vfy
