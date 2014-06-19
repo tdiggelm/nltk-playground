@@ -46,7 +46,13 @@ class Vocabulary:
         self.vocab.append(term)
         self.vocab_rev[term] = self.counter
         self.counter += 1
-            
+    
+    def translate(self, vector, sort=True, reverse=True):
+        tsv = ((self.vocab[i], score) for i, score in vector)
+        if sort:
+            tsv = sorted(tsv, key=itemgetter(1), reverse=reverse)
+        return tsv
+    
     def __contains__(self, term):
         return term in self.vocab_rev
         
