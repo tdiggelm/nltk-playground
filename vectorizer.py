@@ -357,7 +357,21 @@ def import_reuters(nv):
         print("importing file %s of %s..." % (counter, l))
         tags = (["doc:%s" % fileid] 
             + ["cat:%s" % category for category in reuters.categories(fileid)])
-        nv.train_sents(reuters.vectorize_sents(fileid), tags=tags)
+        nv.train_sents(reuters.sents(fileid), tags=tags)
+    nv.update_model()
+
+def import_reuters_training_only(nv):
+    from nltk.corpus import reuters
+    counter = 0
+    
+    fileids = [f for f in reuters.fileids() if f.startswith("training")]
+    l = len(fileids)
+    for fileid in fileids:
+        counter += 1
+        print("importing file %s of %s..." % (counter, l))
+        tags = (["doc:%s" % fileid] 
+            + ["cat:%s" % category for category in reuters.categories(fileid)])
+        nv.train_sents(reuters.sents(fileid), tags=tags)
     nv.update_model()
     
 def import_file(nv, filename):
@@ -377,8 +391,8 @@ LSI testing:
 
 from gensim import corpora, models, similarities
 lsi = models.LsiModel(corpus)
-index = similarities.MatrixSimilarity(lsi[corpus])
-corpus.translate(index[lsi[vectorizer.vectorize_terms("oil")]])[:10]
+sim_lsi = similarities.MatrixSimilarity(lsi[corpus])
+corpus.translate(sim_lsi[lsi[vectorizer.vectorize_terms("oil")]])[:10]
 """
 
 """
@@ -415,5 +429,43 @@ sim = corpus.similarity_matrix() # this takes some time
 [(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.vectorize_term("gold")])][:10]
 
 [(score, fileid, reuters.raw(fileid[4:])) for fileid, score in corpus.translate_similarities(sim[model.vectorize_tag("doc:test/19802")])][:10]
+
+"""
+
+"""
+# Test accuracy of category detection in reuters corpus:
+
+%matplotlib inline
+import matplotlib.pyplot as plt
+import numpy as np
+
+from vectorizer import *
+
+model = NathanModel("./reuters-cf.hnn")
+
+corpus = model.corpus("cat:*")
+
+sim = corpus.similarity_matrix()
+
+def test_acc(sim, fileid):
+    def accuracy(m, p):
+        return sum(1 if m_i in p else 0 for m_i in m)/len(m)
+    m=reuters.categories(fileid); 
+    simr = sim[model.vectorize_sents(reuters.sents(fileid))]
+    simr = corpus.translate_similarities(simr)
+    p=[cat[4:] for cat, score in simr[:len(m)]]
+    return accuracy(m, p)
+
+testids = [fileid for fileid in reuters.fileids() if fileid.startswith("test")]
+
+a_s = [test_acc(sim, fileid) for fileid in testids[:1000]]
+a_m = sum(a_s)/len(a_s) # mean
+a_d = sum((n-v)**2 for v in a_s)/len(a_s) # std deviation
+
+# histogram
+h = sorted([(v, sum(1 if v == s else 0 for s in acc)) for v in set(acc)], key=lambda i: i[0])
+
+# or with numpy.histogram => shows that distribution is not normal
+h = histogram(a_s)
 
 """
