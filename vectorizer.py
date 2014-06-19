@@ -22,6 +22,7 @@ TODO:
     - train a model with only training data from nltk then use test data for vfy
     - make it possible to store/load SimilarityMatrix
     - implement logger (see gensim as example)
+    - use np.argsort for sorting the sparse similarity vector directly
 
 """
 
