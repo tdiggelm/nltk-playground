@@ -14,7 +14,9 @@ from fnmatch import fnmatch
 
 """
 TODO:
-    
+    - implement translate() function in Vocabulary
+        => implement FeatureVector.translate => model.vocab.translate
+        => implement SimilarityVector.translate => corpus.tags.translate
     - document classes
     - merge with nathan-py
     - check compatibility with sklearn
