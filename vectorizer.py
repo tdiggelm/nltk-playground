@@ -142,26 +142,28 @@ class FeatureVector(lil_matrix):
     def __repr__(self):
         return "FeatureVector(%s)" % repr(self.A[0])
 
-class SimilarityMatrix:    
+class SimilarityMatrix(lil_matrix):    
     def __init__(self, corpus):
-        self.corpus = corpus
-        self.ttm = lil_matrix((len(self.corpus), len(self.corpus.model)))
-        for index, vector in enumerate(self.corpus):
-            self.ttm[index] = vector
+        lil_matrix.__init__(self, (len(corpus), len(corpus.model)))
+        for index, vector in enumerate(corpus):
+            if index % 10 == 0:
+                print("SimilarityMatrix: inserting vector %s of %s..." % (
+                    index, len(corpus)))
+            self[index] = vector
     
-    def get_similarities(self, query):
-        if isinstance(query, FeatureVector):
-            return (query * self.ttm.T).A[0]
-        elif isinstance(query, SimilarityMatrix):
-            return (query.ttm * self.ttm.T).A
+    def __getitem__(self, key):
+        if isinstance(key, FeatureVector):
+            return (key * self.T).A[0]
+        elif isinstance(key, SimilarityMatrix):
+            return (key * self.T).A
         else:
-            raise TypeError("query must be FeatureVector or SimilarityMatrix")
-    
-    def __getitem__(self, query):
-        return self.get_similarities(query)
+            return lil_matrix.__getitem__(self, key)
         
     def __iter__(self):
-        return ((v * self.ttm.T).A[0] for v in self.ttm)
+        return ((v * self.T).A[0] for v in lil_matrix.__iter__(self))
+        
+    def __repr__(self):
+        return "SimilarityMatrix(%s)" % repr(self.A)
         
 class NathanCorpus:    
     def __init__(self, model, tags=None):
@@ -174,11 +176,14 @@ class NathanCorpus:
             
         self.tags = Vocabulary(tags)
     
-    def translate(self, sims, sort=True, reverse=True):
+    def translate_similarities(self, sims, sort=True, reverse=True):
         v_tags = ((self.tags[i], val) for i, val in enumerate(sims))
         if sort:
             v_tags = sorted(v_tags, key=itemgetter(1), reverse=reverse)
         return v_tags
+        
+    def similarity_matrix(self):
+        return SimilarityMatrix(self)
     
     def __getitem__(self, key):
         return self.tags[key]
@@ -229,7 +234,7 @@ class NathanModel:
         text = _fetch_url(url)
         self.train_text(text, tags)
         
-    def translate(self, features, sort=True, reverse=True):
+    def translate_features(self, features, sort=True, reverse=True):
         v_terms = ((self.vocab[index], score) for index, score in features)
         if sort:
             v_terms = sorted(v_terms, key=itemgetter(1), reverse=reverse)
