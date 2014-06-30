@@ -23,6 +23,15 @@ TODO:
     - make it possible to store/load SimilarityMatrix
     - implement logger (see gensim as example)
     - use np.argsort for sorting the sparse similarity vector directly
+    - use import logging for logging debug messages
+    
+NEXT STEPS:
+
+    - for creating vocab: use keywords on entire corpus (create #root tag)
+    - refine design => see scratch.txt file, remove helpers (url, text) from standard class and create helper classes
+    - evaluate test corpus as training data (e.g. wiki, reuters, brown)
+    - compare find similar (doc/categories) nathan vs. word2vec vs. etc.
+    - MH: possibility to use nathan for similarity comparison? 
 
 """
 
@@ -43,7 +52,10 @@ class Vocabulary:
         self.counter += 1
     
     def translate(self, vector, sort=True, reverse=True):
-        tsv = ((self.vocab[i], score) for i, score in vector)
+        if isinstance(vector, FeatureVector):
+            tsv = ((self.vocab[i], score) for i, score in vector)
+        else:
+            tsv = ((self.vocab[i], score) for i, score in enumerate(vector))
         if sort:
             tsv = sorted(tsv, key=itemgetter(1), reverse=reverse)
         return tsv
