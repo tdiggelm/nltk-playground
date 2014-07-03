@@ -136,6 +136,16 @@ class Dictionary:
 train = NathanTrainer(ds)
 train.fit(sents, tags)
 
+also check out http://scikit-learn.org/stable/modules/feature_extraction.html#sparsity
+for how the feature extraction is organised
+
+=> idea:
+fit([
+    {tags: ["doc:001", "cat:foo"], sents: [["...", ...], [...]]}
+    {tags: ["doc:002", "cat:bar"], sents: [["...", ...], [...]]}
+    ...
+]) => automatically updates vocabulary
+
 # model = NathanModel(ds, vocabulary=None) => is this the Vocabulary????
 model = NathanModel(ds, vocab_filter, vocab_transformer)
 model.fit_sents(sents, tags)
@@ -154,10 +164,15 @@ model.associate_reverse(term0, term1, ...)
 model.similar_to(term)
 
 tsm = TagSimilarityMatrix(model, pattern)
-tsm.match(vector)
+tsm.match_text() => matching tags
+tsm.match_terms() => matching tags
+tsm.match_url() => matching tags
+tsm.match_sents() => matching tags
 
 tsm = TermSimilarityMatrix(model, pattern)
-tsm.match(vector)
+tsm.find_similar(positive, negative)
+tsm.doesnt_match(term0, term1, term3, ...)
+tsm.similarity(term0, term1)
 
 oder:
 
