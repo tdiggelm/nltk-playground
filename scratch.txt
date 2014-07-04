@@ -132,6 +132,56 @@ class Dictionary:
     def __repr__(self):
         return "Dictionary(%s)" % str(self)
 
+from operator import itemgetter
+from scipy.sparse import lil_matrix, csr_matrix
+class Vectorizer:
+    def __init__(self, vocabulary):
+        self._counter = 0
+        self._vocab = []
+        self._vocabrev = {}
+        for word in vocabulary:
+            self._insert(word)
+    
+    def _insert(self, word):
+        self._vocab.append(word)
+        self._vocabrev[word] = self._counter
+        self._counter += 1
+    
+    def inverse_transform(self, vector, sort=False, reverse=False):    
+        ret = ((self._vocab[i], score) for i, score in enumerate(vector.A[0]))
+        if sort:
+            ret = sorted(ret, key=itemgetter(1), reverse=reverse)
+        return ret
+
+    def transform(self, items):
+        lil = lil_matrix((1, len(self._vocab)))
+        for word, value in items:
+            lil[0, self._vocabrev[word]] = value
+        return csr_matrix(lil)
+    
+    def __contains__(self, word):
+        return word in self._vocabrev
+        
+    def __iter__(self):
+        return iter(self._vocab)
+        
+    def __getitem__(self, selector):
+        if isinstance(selector, str):
+            return self._vocabrev[selector]
+        elif isinstance(selector, int):
+            return self._vocab[selector]
+        elif isinstance(selector, csr_matrix):
+            return self.inverse_transform(selector)
+        else:
+            return self.transform(selector)
+            
+    def __len__(self):
+        return len(self._vocab)
+        
+    def __repr__(self):
+        return "Vectorizer(%s)" % str(self._vocab)
+
+
 """
 train = NathanTrainer(ds)
 train.fit(sents, tags)
@@ -178,4 +228,41 @@ oder:
 
 model.update(vocabulary=None) # updates vocabulary
 model.vocabulary = xxx # set vocab manually
+
+=> GENERIC
+
+from gensim.matutils import scipy2sparse
+model = Model(filename=None, term_filter=None, norm='l2')
+model.train(sents, tags)
+model.train(sents, tags)
+model.train(sents, tags)
+...
+model.update() => updates vocabulary
+model.vocabulary => Vectorizer
+model.complete() # filtered by vocabulary
+model.similar_to() # filtered by vocabulary
+model.transform_sents(sents)
+model.transform_tag(tag)
+model.transform_terms(term0, term1, ..., how='all|any|inverse')
+tags = list(model.tags("cat:*"))
+corpus = list(scipy2sparse(model.transform_tag(tag)) for tag in tags)
+lsi = LsiModel(corpus, num_topics=80, chunksize=2000)
+index = MatrixSimilarity(lsi[corpus])
+sims = index[lsi[scipy2sparse(model.transform_terms("hello"))]]
+result = sorted(zip(tags, sims), reverse=True)
+
+=> another approach
+
+trainer = Trainer(ds)
+trainer.fit(sents, tags)
+trainer.fit(sents, tags)
+trainer.fit(sents, tags)
+...
+
+model = Model(ds, vocabulary=None) # if vocabulary=None => use all_quants
+model.transform_sents(sents)
+model.transform_tag(sents)
+model.transform_tag(sents)
+model.
+
 """
