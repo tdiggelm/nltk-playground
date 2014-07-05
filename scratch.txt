@@ -134,29 +134,36 @@ class Dictionary:
 
 from operator import itemgetter
 from scipy.sparse import lil_matrix, csr_matrix
-class Vectorizer:
-    def __init__(self, vocabulary):
-        self._counter = 0
+class DictionaryVectorizer:
+    def __init__(self, vocab=None):
+        if not vocab is None:
+            self.fit(vocab)
+            
+    def fit(self, vocab):
         self._vocab = []
         self._vocabrev = {}
-        for word in vocabulary:
-            self._insert(word)
-    
-    def _insert(self, word):
-        self._vocab.append(word)
-        self._vocabrev[word] = self._counter
-        self._counter += 1
+        for index, word in enumerate(vocab):
+            self._vocab.append(word)
+            self._vocabrev[word] = index
     
     def inverse_transform(self, vector, sort=False, reverse=False):    
         ret = ((self._vocab[i], score) for i, score in enumerate(vector.A[0]))
         if sort:
             ret = sorted(ret, key=itemgetter(1), reverse=reverse)
         return ret
+        
+    def fit_transform(self, items, ignore_missing=True):
+        self.fit(term for term, _ in items)
+        return self.transform(items, ignore_missing)
 
-    def transform(self, items):
+    def transform(self, items, ignore_missing=True):
         lil = lil_matrix((1, len(self._vocab)))
         for word, value in items:
-            lil[0, self._vocabrev[word]] = value
+            try:
+                lil[0, self._vocabrev[word]] = value
+            except KeyError as e:
+                if not ignore_missing:
+                    raise e
         return csr_matrix(lil)
     
     def __contains__(self, word):
@@ -179,7 +186,7 @@ class Vectorizer:
         return len(self._vocab)
         
     def __repr__(self):
-        return "Vectorizer(%s)" % str(self._vocab)
+        return "DictionaryVectorizer(%s)" % str(self._vocab)
 
 
 """
