@@ -263,6 +263,10 @@ model = Model(ds, vocabulary=None) # if vocabulary=None => use all_quants
 model.transform_sents(sents)
 model.transform_tag(sents)
 model.transform_tag(sents)
-model.
+
+=> best to not enforcing a workflow, build all components seperately with loose coupling
+
+=> important: when doing similarity analyis (e.g. dot multiplication) always compute: (M * v.T).T to get the result, v * M yields the wrong result!
+
 
 """
