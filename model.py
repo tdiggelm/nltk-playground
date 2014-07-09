@@ -1,5 +1,7 @@
 """
-TODO: replace @ with # for tags
+TODO: 
+- replace @ with # for tags
+- enhance tokenizer with entity preservation
 """
 
 from operator import itemgetter
@@ -61,8 +63,57 @@ class Vocabulary:
 class TagNotFound(Exception):
     pass
 
+from bs4 import BeautifulSoup
+from urllib.request import urlopen
 class DefaultPreprocessor:
-    def __call__(self, doc):            
+    def __init__(self, open_url=True):
+        self.open_url = open_url
+        self._is_url = re.compile(
+            '^(?i)\\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+'
+            '[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+'
+            '|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)'
+            '|[^\s`!()\[\]{};:\'".,<>?«»“”‘’]))$')
+    
+    @staticmethod
+    def _decode(page):
+        data = page.read()
+        charset = 'utf-8'
+        match = re.findall('charset=(.+)', page.info().get('Content-Type', ''))
+        if (len(match) > 0):
+            charset = match[0]
+        data = data.decode(charset)
+        return data
+    
+    @staticmethod
+    def _fetch_url(url):
+        with urlopen(url, timeout=10) as page:
+            html = DefaultPreprocessor._decode(page)
+        soup = BeautifulSoup(html)
+
+        # kill all script and style elements
+        for script in soup(['script', 'style']):
+            script.extract()    # rip it out
+
+        # get text
+        text = soup.get_text()
+
+        # break into lines and remove leading and trailing space on each
+        lines = (line.strip() for line in text.splitlines())
+        # break multi-headlines into a line each
+        chunks = (phrase.strip() for line in lines 
+            for phrase in line.split('  '))
+        # drop blank lines
+        text = '\n'.join(chunk for chunk in chunks if chunk)
+
+        return text
+    
+    def __call__(self, doc):
+        if (self.open_url 
+                and isinstance(doc, str) 
+                and not self._is_url.match(doc) is None):
+            if not doc.startswith("http"):
+                doc = "http://" + doc
+            doc = self._fetch_url(doc)
         return doc
         
 class DefaultTokenNormalizer:
@@ -82,10 +133,11 @@ import re
 class DefaultTokenFilter:    
     def __init__(self, 
             reject_numbers=True, 
-            reject_stopwords=True, 
-            reject_punctuation=True):
+            reject_stopwords=True,
+            reject_punctuation=True,
+            language='english'):
         
-        self.stopwords = set(nltk.corpus.stopwords.words('english'))
+        self.stopwords = set(nltk.corpus.stopwords.words(language))
         self.reject_numbers = reject_numbers
         self.reject_stopwords = reject_stopwords
         self.reject_punctuation = reject_punctuation
@@ -117,7 +169,6 @@ from itertools import islice
 class NathanModel:
     def __init__(self, 
             dataspace=None,
-            norm='l2',
             preprocessor=DefaultPreprocessor(),
             tokenizer=DefaultTokenizer(),
             token_normalizer=DefaultTokenNormalizer(),
@@ -131,7 +182,6 @@ class NathanModel:
         else:
             TypeError("dataspace must be str, nathan.core.Dataspace or None")
         self._vocabulary = Vocabulary()
-        self._norm = norm
         self._preprocessor = preprocessor
         self._tokenizer = tokenizer
         self._token_normalizer = token_normalizer
@@ -287,9 +337,3 @@ class NathanModel:
     def __repr__(self):
         return ('NathanModel(num_features=%s, num_tags=%s)' 
             % (self.num_features(), self.num_tags()))
-        
-def test():
-    model = NathanModel()
-    model.train([("test", "hello world"), ("test2", "foo bar")])
-    print(model.transform_tags("test"))
-    return model
