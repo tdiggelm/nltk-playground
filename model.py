@@ -190,7 +190,10 @@ class NathanModel:
         self._update_vocab()
     
     def _normalize(self, v):
-        return sklearn_normalize(v, norm=self._norm, copy=False)
+        if not norm is None:
+            return sklearn_normalize(v, norm=self._norm, copy=False)
+        else:
+            return v
     
     def _update_vocab(self):
         vocab = self._ds.all_quants(limit=0)
