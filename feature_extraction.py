@@ -7,6 +7,7 @@ TODO:
 from operator import itemgetter
 from scipy.sparse import lil_matrix, csr_matrix
 class Vocabulary:
+    """Used internally for building the vocabulary"""
     def __init__(self, vocab=None):
         self.fit(vocab)
             
@@ -61,11 +62,17 @@ class Vocabulary:
         return 'Vocabulary(%s)' % str(self._vocab)
 
 class TagNotFound(Exception):
+    """Exception raised when a tag does not exist."""
     pass
 
 from bs4 import BeautifulSoup
 from urllib.request import urlopen
 class DefaultPreprocessor:
+    """Callable, preprocess a document.
+    
+    Currently this default preprocessor detects if the document is a url and
+    fetches its content.
+    """
     def __init__(self, open_url=True):
         self.open_url = open_url
         self._is_url = re.compile(
@@ -117,11 +124,13 @@ class DefaultPreprocessor:
         return doc
         
 class DefaultTokenNormalizer:
+    """Normalize a token (currently only tranforms to lower-case)."""
     def __call__(self, token):
         return token.lower()
 
 from nltk import word_tokenize, sent_tokenize
 class DefaultTokenizer:
+    """Callable, return document tokanized into words and sentences."""
     def __call__(self, text):
         text = [word_tokenize(sent) for sent in sent_tokenize(text)]
         text = [sent for sent in text if len(sent) > 0]
@@ -129,7 +138,8 @@ class DefaultTokenizer:
 
 import nltk
 import re
-class DefaultTokenFilter:    
+class DefaultTokenFilter:
+    """Callable, filter unwanted tokens (when building the vocabulary)."""
     def __init__(self, 
             reject_numbers=True, 
             reject_stopwords=True,
@@ -166,6 +176,19 @@ from sklearn.preprocessing import normalize as sklearn_normalize
 from fnmatch import fnmatch
 from itertools import islice
 class NathanModel:
+    """The NathanModel can be used for feature extraction and vectorization.
+    
+    Keyword arguments:
+    dataspace -- can be a filename, a nathan.core.Dataspace or None (default)
+    norm -- can be 'l2', 'l1' or None (default 'l2')
+    preprocessor -- callable, returns preprocessed documents
+    tokenizer -- callable, returns document tokenized into words and sentences
+    token_normalizer -- callable, returns normalized tokens
+    token_filter -- callable, filters words when building the vocabulary
+    
+    Examples:
+    >>> model = NathanModel("./reuters.hnn")
+    """
     def __init__(self, 
             dataspace=None,
             norm="l2",
@@ -190,25 +213,52 @@ class NathanModel:
         self._update_vocab()
     
     def _normalize(self, v):
+        """Normalize vector v in-place with norm or return v if norm=None."""
         if self._norm is None:
             return v
         else:
             return sklearn_normalize(v, norm=self._norm, copy=False)
     
     def _update_vocab(self):
+        """Synchronize the vocabulary with dataspace quants."""
         vocab = self._ds.all_quants(limit=0)
         vocab = (quant for quant in vocab if len(quant) > 0 and quant[0] != "@")
         vocab = filter(self._token_filter, vocab)
         self._vocabulary.fit(vocab)
     
     def _vectorize(self, analysis):
+        """Turn an analysis result into a vector by using the vocab."""
         scores = ((word, vty*pty) for word, vty, pty in analysis)
         return self._normalize(self._vocabulary.transform(scores))
 
     def save(self, filename):
+        """Save the dataspace."""
         self._ds.save(filename)
 
     def train(self, docs):
+        """Trains the model the training documents.
+        
+        The docs argument is an iterator that yields documents or 
+        tuples (tags, document). When using the DefaultPreprocessor, a
+        document can be either a string, a url or an already tokenized
+        input. The document is being linked to all the tags specified.
+        
+        Example:
+        
+        >>> docs = [
+            ("doc:test", "hello world"),                    # 1
+            (["doc:test2", "cat:foo"], "www.ai-one.com"),   # 2
+            ("xyz", [["foo", "bar"], ["123", "yada"]]),     # 3
+            "this is another document without tags"         # 4
+        ]
+        >>> model.train(docs)
+        
+        Document one is given as a raw string and tagged with "doc:test". The
+        second document is tagged with "doc:test2" and "cat:foo" and fetched
+        from the specified url. The third document is tagged with "xyz" and
+        already given as a tokenized input (sentences and words). The last
+        document is again given as a raw string while it is not tagged at all.
+        """
         for item in docs:
             try:
                 tags, doc = item
@@ -230,6 +280,17 @@ class NathanModel:
         self._update_vocab()
     
     def transform_document(self, doc):
+        """Transforms the input document into a feature vector.
+        
+        When using the DefaultPreprocessor a document can either be a string
+        containing the raw text, a url that is then fetched by the preprocessor
+        or an already tokenized input array.
+        
+        Examples:
+        >>> model.transform_document("foo bar")
+        >>> model.transform_document("http://en.wikipedia.org/wiki/Foobar")
+        >>> model.transform_document([["foo", "bar"]])
+        """
         if not self._preprocessor is None:
             doc = self._preprocessor(doc)
         if not self._tokenizer is None and isinstance(doc, str):
@@ -253,6 +314,19 @@ class NathanModel:
         return self._vectorize(keywords)
     
     def transform_words(self, *terms, how='any'):
+        """Transforms the input words into a feature vector.
+        
+        Keyword arguments:
+        how -- specifies how multiple words are combined (default 'any')
+            'any': mean vector of all word vectors
+            'all': associate the terms
+            'inverse': use an inverse association scheme
+        
+        Examples:
+        >>> model.transform_words('gold')
+        >>> model.transform_words('gold', 'silver')
+        >>> model.transform_words('gold', 'copper', how='all')
+        """
         if not self._token_normalizer is None:
             terms = (self._token_normalizer(term) for term in terms)
             
@@ -270,6 +344,15 @@ class NathanModel:
             raise ValueError('how must be either \'any\' or \'all\'')
         
     def transform_tags(self, *tags):
+        """Transforms tags into a feature vector.
+        
+        Examples:
+        >>> model.transform_tags('cat:gold')
+        >>> model.transform_tags('cat:gold', 'cat:money')
+        
+        If multiple tags are specified, the mean of all the vectors tranformed
+        seperatly is returned.
+        """
         def transform_tag(tag):
             handle = self._ds.select('@%s' % tag)
             if handle is None:
@@ -279,6 +362,26 @@ class NathanModel:
         return self._normalize(sum(transform_tag(tag) for tag in tags))
         
     def inverse_transform(self, vector, topn=10, reverse=True):
+        """Transforms a vector into (feature, score) tuples.
+        
+        Keywords arguments:
+        topn -- Return top n features (default 10), or unsorted if None
+        reverse -- Return features in reverse order
+        
+        Example:
+        >>> vec = model.transform_words('gold')
+        >>> model.inverse_transform(vec)
+        [('gunnar', 0.35409381339795531),
+         ('kgs', 0.28620700949846989),
+         ('tyranex', 0.27177590999331386),
+         ('tyranite', 0.27177590999331386),
+         ('gldf', 0.20979731306159416),
+         ('tunnel', 0.16583403659912016),
+         ('echo', 0.15893455216408992),
+         ('cove', 0.1490781458283324),
+         ('mccoy', 0.1490781458283324),
+         ('ngc', 0.12112428230386456)]
+        """
         if not topn is None:
             ret = self._vocabulary.inverse_transform(vector, True, reverse)
             return ret[:topn]
@@ -286,6 +389,19 @@ class NathanModel:
             return self._vocabulary.inverse_transform(vector)
         
     def tags(self, pattern=None, match='glob', limit=None):
+        """Return all tags in model.
+        
+        Keyword arguments:
+        pattern -- only return tags matching the pattern (default None)
+        match -- 'glob' or 'similar' (default 'glob')
+            'glob': wildcard style matching, e.g. 'cat:*', 'a??le'
+            'similar': find similar tags
+        limit -- limit to n results
+        
+        Examples:
+        >>> model.tags('cat:*')
+        >>> model.tags('cat:gowd', match='similar')
+        """
         if match not in ['similar', 'glob']:
             raise ValueError("match must be 'glob' or 'similar'")
           
@@ -311,6 +427,19 @@ class NathanModel:
         return tags
     
     def words(self, pattern=None, match='glob', limit=None):
+        """Return all words (features) in model.
+        
+        Keyword arguments:
+        pattern -- only return words matching the pattern (default None)
+        match -- 'glob' or 'similar' (default 'glob')
+            'glob': wildcard style matching, e.g. 'cat:*', 'a??le'
+            'similar': find similar words
+        limit -- limit to n results
+        
+        Examples:
+        >>> model.words('a??le')
+        >>> model.words('helo', match='similar')
+        """
         if match not in ['similar', 'glob']:
             raise ValueError("match must be 'glob' or 'similar'")
 
@@ -331,15 +460,19 @@ class NathanModel:
     
     @property
     def dataspace(self):
+        """Return the underlying dataspace."""
         return self._ds
     
     def __contains__(self, word):
+        """Check if word is in vocabulary."""
         return word in self._vocabulary
         
     def num_features(self):
+        """Return number of features, corresponds with the vector length."""
         return len(self._vocabulary)
         
     def num_tags(self):
+        """Return number of tags."""
         return sum(1 for _ in self.tags())
         
     def __repr__(self):
