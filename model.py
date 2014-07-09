@@ -168,6 +168,7 @@ from itertools import islice
 class NathanModel:
     def __init__(self, 
             dataspace=None,
+            norm="l2",
             preprocessor=DefaultPreprocessor(),
             tokenizer=DefaultTokenizer(),
             token_normalizer=DefaultTokenNormalizer(),
@@ -180,6 +181,7 @@ class NathanModel:
             self._ds = dataspace
         else:
             TypeError("dataspace must be str, nathan.core.Dataspace or None")
+        self._norm = norm
         self._vocabulary = Vocabulary()
         self._preprocessor = preprocessor
         self._tokenizer = tokenizer
@@ -188,7 +190,7 @@ class NathanModel:
         self._update_vocab()
     
     def _normalize(self, v):
-        return sklearn_normalize(v)
+        return sklearn_normalize(v, norm=self._norm, copy=False)
     
     def _update_vocab(self):
         vocab = self._ds.all_quants(limit=0)
