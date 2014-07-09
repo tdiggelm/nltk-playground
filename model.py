@@ -123,9 +123,8 @@ class DefaultTokenNormalizer:
 from nltk import word_tokenize, sent_tokenize
 class DefaultTokenizer:
     def __call__(self, text):
-        if isinstance(text, str):
-            text = [word_tokenize(sent) for sent in sent_tokenize(text)]
-            text = [sent for sent in text if len(sent) > 0]
+        text = [word_tokenize(sent) for sent in sent_tokenize(text)]
+        text = [sent for sent in text if len(sent) > 0]
         return text
 
 import nltk
@@ -214,7 +213,7 @@ class NathanModel:
                 tags = [tags]
             if not self._preprocessor is None:
                 doc = self._preprocessor(doc)
-            if not self._tokenizer is None:
+            if not self._tokenizer is None and isinstance(doc, str):
                 doc = self._tokenizer(doc)
             tag_handles = [self._ds.insert('@%s' % tag) for tag in tags]
             for sent in doc:
@@ -228,7 +227,7 @@ class NathanModel:
     def transform_document(self, doc):
         if not self._preprocessor is None:
             doc = self._preprocessor(doc)
-        if not self._tokenizer is None:
+        if not self._tokenizer is None and isinstance(doc, str):
             doc = self._tokenizer(doc)
             
         doc_h = self._ds.insert('#temp')
