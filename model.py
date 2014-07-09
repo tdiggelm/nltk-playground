@@ -323,7 +323,11 @@ class NathanModel:
             words = islice(words, limit)
         
         return words
-        
+    
+    @property
+    def dataspace(self):
+        return self._ds
+    
     def __contains__(self, word):
         return word in self._vocabulary
         
