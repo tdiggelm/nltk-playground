@@ -175,7 +175,7 @@ class NathanModel:
                     self._ds.link(tag_h, sen_h)
         self._update_vocab()
     
-    def transform_doc(self, doc):
+    def transform_document(self, doc):
         if not self._preprocessor is None:
             doc = self._preprocessor(doc)
         if not self._tokenizer is None:
@@ -198,7 +198,7 @@ class NathanModel:
         
         return self._vectorize(keywords)
     
-    def transform_terms(self, *terms, how='any'):
+    def transform_words(self, *terms, how='any'):
         if not self._token_normalizer is None:
             terms = (self._token_normalizer(term) for term in terms)
             
@@ -278,12 +278,15 @@ class NathanModel:
     def __contains__(self, word):
         return word in self._vocabulary
         
-    def __len__(self):
+    def num_features(self):
         return len(self._vocabulary)
         
+    def num_tags(self):
+        return sum(1 for _ in self.tags())
+        
     def __repr__(self):
-        return ('NathanModel(tags=%s, features=%s)' 
-            % (len(list(self.tags())), len(self._vocabulary)))
+        return ('NathanModel(num_features=%s, num_tags=%s)' 
+            % (self.num_features(), self.num_tags()))
         
 def test():
     model = NathanModel()
